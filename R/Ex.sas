@@ -1,4 +1,4 @@
-* Exemplo de cálculo de matriz de Covariâncias e de Correlações amostrais, além da distância de Mahalanobis.
+* Exemplo de cálculo de matriz de Covariâncias e de Correlações amostrais, além da distância de Mahalanobis. 
 
 * Vetores e Matriz;
 proc iml;
