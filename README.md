@@ -14,33 +14,33 @@ O conteúdo e exercícios de aula abordam os seguintes tópicos:
 - Modelo de regressão linear simples e múltipla;
 - Modelos superparametrizados de posto incompleto, de médias de caselas, com restrições paramétricas e modelos equivalentes;
 
-### 3. Estimabilidade e estimação por ponto:
+### 3. Estimabilidade e estimação por ponto
 - "BLUE" de funções estimáveis;
 - Teorema de Gauss-Markov;
 - Regras práticas de estimabilidade;
 
-### 4. Análise de variância (ANOVA) e somas de quadrados:
+### 4. Análise de variância (ANOVA) e somas de quadrados
 - ANOVA com um fator de tratamento: Caso balanceado; 
 - ANOVA com dois fatores de tratamento: Caso balanceado e desbalanceado;
 - Projeção e decomposição ortogonal;
 - Contrastes ortogonais;
 - Esperança matemática, distribuição e independência das formas quadráticas de interesse;
 
-### 5. Estimação por intervalo e por região.
+### 5. Estimação por intervalo e por região
 
-### 6. Testes de hipóteses:
+### 6. Testes de hipóteses
 - Somas de quadrados de hipóteses;
 - Hipóteses equivalentes;
 - Teste da razão de verossimilhança e outros critérios;
 
-### 7. Restrições nos parâmetros e restrições nas soluções:
+### 7. Restrições nos parâmetros e restrições nas soluções
 - Reparametrizações e modelos equivalentes;
 
-### 8. Modelo linear generalizado:
+### 8. Modelo linear generalizado
 - Mínimos quadrados ponderados e generalizados;
 - Estimação e testes;
 
-### 9. Experimentos desbalanceados e com caselas vazias:
+### 9. Experimentos desbalanceados e com caselas vazias
 - Interpretação de hipóteses.
 
 ## Referência Bibliográfica
