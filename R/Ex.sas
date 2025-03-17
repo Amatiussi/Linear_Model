@@ -1,6 +1,6 @@
 * Exemplo de cálculo de matriz de Covariâncias e de Correlações amostrais, além da distância de Mahalanobis.
 
-* Vetores e Matriz
+* Vetores e Matriz;
 proc iml;
 y1 = {72,60,56,41,32,30,39,42,37,33,32,63,54,47, 91,56,79,81,78,46, 39,32,60,35,39,50,43,48};
 y2 = {66,53,57,29,32,35,39,43,40,29,30,45,46,51, 79,68,65,80,55,38, 35,30,50,37,36,34,37,54};
@@ -12,7 +12,7 @@ create Cork var {North East South West};
 append from Y;
 Close Cork;
 
-* Matriz de Variâncias e Covariâncias
+* Matriz de Variâncias e Covariâncias;
 p = ncol(Y);
 n = nrow(Y);
 In = I(n);
@@ -25,7 +25,7 @@ Verifica = D*corr*D;
 title 'Matriz de variâncias e covariâncias amostrais utilizando proc iml';
 print ,,Sigma[format=8.4],, 'Matriz de correlações:' ,, corr[format=8.5],, Verifica[format=8.4];
 
-* Distância de Mahalanobis (Distância padronizada)
+* Distância de Mahalanobis (Distância padronizada);
 mi = (1/n)*t(jn)*y;
 print 'Vetor de médias:' mi[format=5.2],,;
 
