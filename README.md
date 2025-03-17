@@ -3,12 +3,15 @@
 Este repositório contém o material da disciplina `Modelos Lineares I` (2025), ministrada pelo Prof. Dr. César Gonçalves de Lima na ESALQ/USP, como parte do Programa de Pós-Graduação em Estatística e Experimentação Agronômica. O objetivo deste repositório é disponibilizar os scripts e exercícios utilizados nas aulas, originalmente desenvolvidos em SAS, convertidos para a linguagem de programação R.
 
 ## Conteúdo 
-Os exercícios e exemplos de aula abordam os seguintes tópicos:
+O conteúdo e exercícios de aula abordam os seguintes tópicos:
 
-### 1. Matrizes inversas generalizadas, sistemas inconsistentes e projeção ortogonal
+### 1. Matrizes, Vetores e Distribuição
+- Vetores e matrizes aleatórias; 
+- Matrizes inversas generalizadas, sistemas inconsistentes e projeção ortogonal; 
+- Distribuição normal multivariada e distribuição de formas quadráticas;
 
-### 2. Modelo linear
-- Modelo de regressão linear múltipla;
+### 2. Regressão Linear
+- Modelo de regressão linear simples e múltipla;
 - Modelos superparametrizados de posto incompleto, de médias de caselas, com restrições paramétricas e modelos equivalentes;
 
 ### 3. Estimabilidade e estimação por ponto:
@@ -16,7 +19,9 @@ Os exercícios e exemplos de aula abordam os seguintes tópicos:
 - Teorema de Gauss-Markov;
 - Regras práticas de estimabilidade;
 
-### 4. Análise de variância e somas de quadrados:
+### 4. Análise de variância (ANOVA) e somas de quadrados:
+- ANOVA com um fator de tratamento: Caso balanceado; 
+- ANOVA com dois fatores de tratamento: Caso balanceado e desbalanceado;
 - Projeção e decomposição ortogonal;
 - Contrastes ortogonais;
 - Esperança matemática, distribuição e independência das formas quadráticas de interesse;
