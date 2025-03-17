@@ -1,9 +1,9 @@
 # Modelos Lineares I
 
-Este repositório contém o material da disciplina ´Modelos Lineares I´ (2025), ministrada pelo Prof. Dr. César Gonçalves de Lima na ESALQ/USP, como parte do Programa de Pós-Graduação em Estatística e Experimentação Agronômica. O objetivo deste repositório é disponibilizar os scripts utilizados nas aulas, originalmente desenvolvidos em SAS, convertidos para a linguagem de programação R.
+Este repositório contém o material da disciplina `Modelos Lineares I` (2025), ministrada pelo Prof. Dr. César Gonçalves de Lima na ESALQ/USP, como parte do Programa de Pós-Graduação em Estatística e Experimentação Agronômica. O objetivo deste repositório é disponibilizar os scripts utilizados nas aulas, originalmente desenvolvidos em SAS, convertidos para a linguagem de programação R.
 
 ## Conteúdo da Disciplina
-A disciplina aborda os seguintes tópicos:
+Os exercícios e exemplos de aula aborda os seguintes tópicos:
 
 ### 1. Matrizes inversas generalizadas, sistemas inconsistentes e projeção ortogonal
 
@@ -41,7 +41,7 @@ A disciplina aborda os seguintes tópicos:
 ## Referência Bibliográfica
 A disciplina é baseada no livro:
 
-Rencher, A.C.; Schaalje, G.B. (2008). Linear Models in Statistics, 2nd ed. New York: John Wiley & Sons, Inc.
+Rencher, A.C.; Schaalje, G.B. (2008). **Linear Models in Statistics**, 2nd ed. New York: John Wiley & Sons, Inc. [DOI](https://doi.org/10.1002/9780470192610).
 
 Este livro é uma referência clássica e abrangente sobre modelos lineares, abordando tanto a teoria quanto a aplicação prática dos conceitos. Ele é amplamente utilizado como base para o desenvolvimento do conteúdo da disciplina, fornecendo exemplos, exercícios e explicações detalhadas que complementam as aulas.
 
