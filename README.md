@@ -16,12 +16,12 @@ Os exercícios e exemplos de aula abordam os seguintes tópicos:
 - Teorema de Gauss-Markov;
 - Regras práticas de estimabilidade;
 
-### 4.Análise de variância e somas de quadrados:
+### 4. Análise de variância e somas de quadrados:
 - Projeção e decomposição ortogonal;
 - Contrastes ortogonais;
 - Esperança matemática, distribuição e independência das formas quadráticas de interesse;
 
-### 5.Estimação por intervalo e por região.
+### 5. Estimação por intervalo e por região.
 
 ### 6. Testes de hipóteses:
 - Somas de quadrados de hipóteses;
