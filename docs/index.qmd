@@ -1,0 +1,4955 @@
+---
+title: "Conversão de scripts em SAS para R com base nos exemplos apresentados em aula"
+subtitle: "Modelos Lineares I"
+format:
+  html:
+    output-dir: docs
+    theme: cosmo
+    page-layout: article
+    toc: true
+    code-link: true
+    number-sections: true
+    grid:
+      sidebar-width: 250px
+      body-width: 800px
+      margin-width: 250px
+      gutter-width: 1.5em
+editor: visual
+---
+
+# Capítulos 1 a 3 - Covariância, Correlação e Distância de Mahalanobis
+
+Exemplo de cálculo de matriz de Covariâncias e de Correlações amostrais, além da distância de Mahalanobis.
+
+Fonte dos dados: *Weights of Cork Boring (in Centigrams) in Four Directions for 28 trees. Applied Multivariate Statistics with SAS Software. Khattree & Naik(2003) - p. 11.*
+
+## Vetores e Matriz
+
+::: panel-tabset
+### R
+
+Para criar **vetores** no R, definimos um nome para cada vetor (`y1`, `y2`, `y3` e `y4`), em seguida, utilizamos o operador `<-` e a função `c()` para atribuir valores a cada um dos objetos (vetores). Dentro de `c()`, declaramos seus valores, separados por vírgula.
+
+```{r}
+y1 <- c(72,60,56,41,32,30,39,42,37,33,32,63,54,47,91,56,79,81,78,46,39,32,60,35,39,50,43,48)
+
+y2 <- c(66,53,57,29,32,35,39,43,40,29,30,45,46,51,79,68,65,80,55,38,35,30,50,37,36,34,37,54)
+
+y3 <- c(76,66,64,36,35,34,31,31,31,27,34,74,60,52,100,47,70,68,67,37,34,30,67,48,39,37,39,57)
+
+y4 <- c(77,63,58,38,36,26,27,25,25,36,28,63,52,43,75,50,61,58,60,38,37,32,54,39,31,40,50,43)
+```
+
+Com a função `cbind()` juntamos os vetores `y1`, `y2`, `y3` e `y4`, salvando-os em um objeto chamado `Y`. Utilizando a função `colnames()`, alteramos os nomes dos vetores (`"North"`, `"East"`, `"South"`, `"West"`).
+
+```{r}
+Y <- cbind(y1, y2, y3, y4)
+colnames(Y) <- c("North", "East", "South", "West")
+Y
+```
+
+Com a função `class()`, constatamos que o objeto `Y` é uma **matriz** (`matrix`).
+
+```{r}
+class(Y)
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+proc iml;
+
+y1 = {72,60,56,41,32,30,39,42,37,33,32,63,54,47, 91,56,79,81,78,46, 39,32,60,35,39,50,43,48};
+
+y2 = {66,53,57,29,32,35,39,43,40,29,30,45,46,51, 79,68,65,80,55,38, 35,30,50,37,36,34,37,54};
+
+y3 = {76,66,64,36,35,34,31,31,31,27,34,74,60,52,100,47,70,68,67,37, 34,30,67,48,39,37,39,57};
+
+y4 = {77,63,58,38,36,26,27,25,25,36,28,63,52,43, 75,50,61,58,60,38, 37,32,54,39,31,40,50,43};
+```
+
+```{r}
+#| eval: false
+
+Y = y1||y2||y3||y4;
+create Cork var {North East South West};
+append from Y;
+Close Cork;
+```
+:::
+
+## Matriz de Variâncias e Covariâncias
+
+Para obtermos a matriz de variâncias e covariâncias, precisamos dos seguintes objetos:
+
+-   `n`: número de observações $n$;
+
+-   `In`: matriz identidade $\mathbf{I}$;
+
+-   `jn`: vetor coluna de 1's $\mathbf{j}$;
+
+-   `Jnn`: matriz de 1's $\mathbf{J}$.
+
+::: panel-tabset
+### R
+
+As funções `nrow()` e `ncol()` nos retornam o número de **linhas** e **colunas** de um objeto, respectivamente.
+
+```{r}
+n <- nrow(Y)
+p <- ncol(Y)
+
+n; p
+```
+
+No caso da matriz `Y`, apresenta dimensão $28 \times 4$.
+
+A função `diag()` cria uma **matriz identidade**. Basta inserir dentro da função a dimensão da matriz.
+
+```{r}
+In <- diag(n)
+In
+```
+
+$$
+\mathbf{I}_{(28)} = 
+  \begin{bmatrix}
+   1 & 0 & 0 & \dots & 0 \\
+   0 & 1 & 0 & \dots & 0 \\
+   0 & 0 & 1 &\dots & 0 \\
+   \vdots & \vdots & \vdots & \ddots & \vdots \\
+   0 & 0 & 0 & \dots & 1
+   \end{bmatrix}
+$$
+
+Com a função `matrix()`, podemos criar qualquer tipo de matriz, vetor ou escalar. Para isso, utilizamos três argumentos dentro da função:
+
+-   `data =`: os elementos que compõem a matriz;
+
+-   `nrow =`: número de linhas da matriz;
+
+-   `ncol =`: número de colunas da matriz.
+
+```{r}
+jn <- matrix(data = 1, nrow = n, ncol = 1)
+jn
+
+Jnn <- matrix(data = 1, nrow = n, ncol = n)
+Jnn
+```
+
+Nos casos anteriores, criamos o vetor coluna de 1's `jn` de dimensão $28 \times 1$ e a matriz de 1's `Jnn` de dimensão $28 \times 28$.
+
+$$
+j_n = \mathbf{j}_{(28 \times 1)} = [1,1,...,1]'
+$$
+
+$$
+Jnn = \mathbf{J}_{(28 \times 28)} = 
+  \begin{bmatrix}
+   1 & 1 & 1 & \dots & 1 \\
+   1 & 1 & 1 & \dots & 1 \\
+   1 & 1 & 1 &\dots & 1 \\
+   \vdots & \vdots & \vdots & \ddots & \vdots \\
+   1 & 1 & 1 & \dots & 1
+   \end{bmatrix}
+$$
+
+Além disso, note que a matriz $\mathbf{J}$ (`Jnn`) pode ser obtida por $\mathbf{J} = \mathbf{j} \space \mathbf{j}'$, ou seja, a multiplicação do vetor coluna $\mathbf{j}$ (`jn`) pela sua transposta.
+
+No R, utilizamos a função `t()` para realizar a transposição de uma matriz ou vetor.
+
+```{r}
+Jnn <- jn %*% t(jn)
+Jnn
+```
+
+$$
+\mathbf{J} = \mathbf{j} \space \mathbf{j}' = 
+\begin{bmatrix} 
+1 \\ 1 \\ \vdots \\1 
+\end{bmatrix}
+\begin{bmatrix} 
+1 & 1 & \dots & 1 
+\end{bmatrix}
+= 
+  \begin{bmatrix}
+   1 & 1 & \dots & 1 \\
+   1 & 1 & \dots & 1 \\
+   \vdots & \vdots & \ddots & \vdots \\
+   1 & 1 & \dots & 1
+   \end{bmatrix}
+$$
+
+A seguir, calcularemos a matriz de variâncias e covariâncias amostrais, dada pela equação:
+
+$$\mathbf{\Sigma} = \frac{1}{n-1} \mathbf{Y}'(\mathbf{I} - \frac{1}{n}J) \mathbf{Y}$$
+
+```{r}
+Sigma <- (1 / (n - 1)) * t(Y) %*% (In - (1/n) * Jnn) %*% Y
+Sigma
+```
+
+A função `t()` realiza a transposição de uma matriz ou vetor. Já o operador `%*%` realiza a multiplicação entre duas matrizes ou vetores conformes.
+
+No R, temos a função `cov()` que realiza o cálculo da matriz de variâncias e covariâncias. Para isso, basta declarar dentro da função a matriz desejada.
+
+```{r}
+cov(Y)
+```
+
+$$
+\mathbf{\Sigma} = 
+  \begin{bmatrix}
+   \sigma^2_1 & \sigma_{12} & \sigma_{13} & \dots & \sigma_{1p} \\
+   \sigma_{21} & \sigma^2_2 & \sigma_{23} & \dots & \sigma_{2p} \\
+   \sigma_{31} & \sigma_{32} & \sigma^2_3 &\dots & \sigma_{p3} \\
+   \vdots & \vdots & \vdots & \ddots & \vdots \\
+   \sigma_{p1} & \sigma_{p2} & \sigma_{p3} & \dots & \sigma^2_p
+   \end{bmatrix}
+$$
+
+Os elementos da diagonal principal são as variâncias e os demais elementos, as covariâncias. Note que a matriz de variâncias e covariâncias é simétrica.
+
+## Matriz de Correlações {#sec-corr}
+
+Para calcular a matriz de correlação ($\mathbf{\rho}_{ij}$), utilizamos a seguinte expressão:
+
+$$\mathbf{\rho}_{ij} = \mathbf{D}_{\sigma}^{-1} \mathbf{\Sigma}  \mathbf{D}_{\sigma}^{-1}$$
+
+em que $\mathbf{D}_{\sigma}$ é uma matriz diagonal com a raiz quadrada das variâncias, ou seja, a raiz quadrada da diagonal da matriz de variâncias e covariâncias ($\mathbf{\Sigma}$).
+
+```{r}
+D <- sqrt(diag(Sigma))
+D
+
+corr <- solve(diag(D)) %*% Sigma %*% solve(diag(D))
+corr
+```
+
+A função `sqrt()` realiza a operação raiz quadrada. Já a `solve()`, calcula a inversa de uma matriz.
+
+No R, temos a função `cor()` que realiza o cálculo da matriz de correlação. Novamente, basta declarar a matriz dentro da função.
+
+```{r}
+cor(Y)
+```
+
+$$
+\mathbf{\rho} = 
+  \begin{bmatrix}
+   1 & \rho_{12} & \rho_{13} & \dots & \rho_{1p} \\
+   \rho_{21} & 1 & \rho_{23} & \dots & \rho_{2p} \\
+   \rho_{31} & \rho_{32} & 1 &\dots & \rho_{p3} \\
+   \vdots & \vdots & \vdots & \ddots & \vdots \\
+   \rho_{p1} & \rho_{p2} & \rho_{p3} & \dots & 1
+   \end{bmatrix}
+$$
+
+Por fim, a partir da matriz de correlação ($\mathbf{\rho}_{ij}$), podemos retornar para a matriz de variâncias e covariâncias ($\mathbf{\Sigma}$) a partir da seguinte equação:
+
+$$
+\mathbf{\Sigma} = \mathbf{D}_{\sigma} \mathbf{\rho}_{ij} \mathbf{D}_{\sigma}
+$$
+
+```{r}
+Verifica <- diag(D) %*% corr %*% diag(D)
+Verifica
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+p = ncol(Y);
+n = nrow(Y);
+In = I(n);
+jn = j(n,1,1);
+Jnn = J(n,n,1);
+Sigma = (1/(n-1))*t(Y)*(In-(1/n)*Jnn)*Y;
+D = sqrt(diag(Sigma));
+corr = inv(D)*Sigma*inv(D);
+Verifica = D*corr*D;
+title 'Matriz de variâncias e covariâncias amostrais utilizando proc iml';
+print ,,Sigma[format=8.4],, 'Matriz de correlações:' ,, corr[format=8.5],, Verifica[format=8.4];
+```
+:::
+
+## Distância de Mahalanobis (Distância padronizada)
+
+:::::: panel-tabset
+### R
+
+Primeiramente, calcularemos o vetor de médias ($\mathbf{\mu}$) da matriz $\mathbf{Y}$.
+
+$$\mathbf{\mu} = \frac{1}n \mathbf{j}' \mathbf{Y}$$
+
+```{r}
+mi <- (1/n) * t(jn) %*% Y
+mi
+```
+
+Com o vetor de médias ($\mathbf{\mu}$), calcularemos a distância de Mahalanobis ($DM$), dada pela seguinte expressão:
+
+$$
+DM = (\mathbf{y} - \mathbf{\mu})' \mathbf{\Sigma} (\mathbf{y} - \mathbf{\mu})
+$$
+
+```{r}
+DM2 <- rep(0, n)
+for (i in 1:n) {
+  yi <- Y[i,]
+  DM <- as.numeric((yi - mi) %*% solve(Sigma) %*% t(yi - mi))
+  DM2[i] <- DM
+}
+DM2
+```
+
+No R, podemos utilizar a função `mahalanobis()` para calcular a distância de Mahalanobis. Como argumentos, temos:
+
+-   `x =`: matriz utilizada para o cálculo;
+
+-   `center =`: o vetor de médias ($\mu$);
+
+-   `cov =`: a matriz de variâncias e covariâncias ($\Sigma$).
+
+```{r}
+mahalanobis(x = Y, center = mi, cov = Sigma)
+```
+
+Ordenando os valores do vetor da distância de Mahalanobis, temos:
+
+```{r}
+rank <- rank(DM2)
+data.frame(Y, DM2, rank)
+```
+
+A observação 13 apresenta a menor distância, enquanto a 16, a maior distância de Mahalanobis.
+
+### SAS
+
+```{r}
+#| eval: false
+
+mi = (1/n)*t(jn)*y;
+print 'Vetor de médias:' mi[format=5.2],,;
+```
+
+```{r}
+#| eval: false
+
+DM2 = j(n,1,0);
+i=1;
+do while (i<=n);
+yi= Y[i,];
+DM = (yi-mi)*inv(Sigma)*t(yi-mi);
+DM2[i] = DM;
+i=i+1;
+end;
+
+rank = rank(DM2);
+print
+```
+
+```{r}
+#| eval: false
+
+'-----------------------------------------------------------------',
+'Distância de Mahalanobis de cada ponto (y) ao vetor de médias(mi)',
+'-----------------------------------------------------------------';
+print ,,Y ' ' DM2[format=8.4] ' ' rank;
+quit;
+
+proc corr cov data=cork;
+title 'Matriz de variâncias e covariâncias utilizando proc corr';
+var north east south west;
+run;
+```
+
+# Exemplo
+
+Exemplo de cálculo de matriz de Covariâncias e de Correlações amostrais, além da distância de Mahalanobis.
+
+Fonte dos dados: *Weights of Cork Boring (in Centigrams) in Four Directions for 28 trees. Applied Multivariate Statistics with SAS Software. Khattree & Naik(2003) - p. 11.*
+
+## Vetores e Matriz
+
+::: panel-tabset
+### R
+
+Para criar **vetores** no R, definimos um nome para cada vetor (`y1`, `y2`, `y3` e `y4`), em seguida, utilizamos o operador `<-` e a função `c()` para atribuir valores a cada um dos objetos (vetores). Dentro de `c()`, declaramos seus valores, separados por vírgula.
+
+```{r}
+y1 <- c(72,60,56,41,32,30,39,42,37,33,32,63,54,47,91,56,79,81,78,46,39,32,60,35,39,50,43,48)
+
+y2 <- c(66,53,57,29,32,35,39,43,40,29,30,45,46,51,79,68,65,80,55,38,35,30,50,37,36,34,37,54)
+
+y3 <- c(76,66,64,36,35,34,31,31,31,27,34,74,60,52,100,47,70,68,67,37,34,30,67,48,39,37,39,57)
+
+y4 <- c(77,63,58,38,36,26,27,25,25,36,28,63,52,43,75,50,61,58,60,38,37,32,54,39,31,40,50,43)
+```
+
+Com a função `cbind()` juntamos os vetores `y1`, `y2`, `y3` e `y4`, salvando-os em um objeto chamado `Y`. Utilizando a função `colnames()`, alteramos os nomes dos vetores (`"North"`, `"East"`, `"South"`, `"West"`).
+
+```{r}
+Y <- cbind(y1, y2, y3, y4)
+colnames(Y) <- c("North", "East", "South", "West")
+Y
+```
+
+Com a função `class()`, constatamos que o objeto `Y` é uma **matriz** (`matrix`).
+
+```{r}
+class(Y)
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+proc iml;
+
+y1 = {72,60,56,41,32,30,39,42,37,33,32,63,54,47, 91,56,79,81,78,46, 39,32,60,35,39,50,43,48};
+
+y2 = {66,53,57,29,32,35,39,43,40,29,30,45,46,51, 79,68,65,80,55,38, 35,30,50,37,36,34,37,54};
+
+y3 = {76,66,64,36,35,34,31,31,31,27,34,74,60,52,100,47,70,68,67,37, 34,30,67,48,39,37,39,57};
+
+y4 = {77,63,58,38,36,26,27,25,25,36,28,63,52,43, 75,50,61,58,60,38, 37,32,54,39,31,40,50,43};
+```
+
+```{r}
+#| eval: false
+
+Y = y1||y2||y3||y4;
+create Cork var {North East South West};
+append from Y;
+Close Cork;
+```
+:::
+
+## Matriz de Variâncias e Covariâncias
+
+Para obtermos a matriz de variâncias e covariâncias, precisamos dos seguintes objetos:
+
+-   `n`: número de observações $n$;
+
+-   `In`: matriz identidade $\mathbf{I}$;
+
+-   `jn`: vetor coluna de 1's $\mathbf{j}$;
+
+-   `Jnn`: matriz de 1's $\mathbf{J}$.
+
+::: panel-tabset
+### R
+
+As funções `nrow()` e `ncol()` nos retornam o número de **linhas** e **colunas** de um objeto, respectivamente.
+
+```{r}
+n <- nrow(Y)
+p <- ncol(Y)
+
+n; p
+```
+
+No caso da matriz `Y`, apresenta dimensão $28 \times 4$.
+
+A função `diag()` cria uma **matriz identidade**. Basta inserir dentro da função a dimensão da matriz.
+
+```{r}
+In <- diag(n)
+In
+```
+
+$$
+\mathbf{I}_{(28)} = 
+  \begin{bmatrix}
+   1 & 0 & 0 & \dots & 0 \\
+   0 & 1 & 0 & \dots & 0 \\
+   0 & 0 & 1 &\dots & 0 \\
+   \vdots & \vdots & \vdots & \ddots & \vdots \\
+   0 & 0 & 0 & \dots & 1
+   \end{bmatrix}
+$$
+
+Com a função `matrix()`, podemos criar qualquer tipo de matriz, vetor ou escalar. Para isso, utilizamos três argumentos dentro da função:
+
+-   `data =`: os elementos que compõem a matriz;
+
+-   `nrow =`: número de linhas da matriz;
+
+-   `ncol =`: número de colunas da matriz.
+
+```{r}
+jn <- matrix(data = 1, nrow = n, ncol = 1)
+jn
+
+Jnn <- matrix(data = 1, nrow = n, ncol = n)
+Jnn
+```
+
+Nos casos anteriores, criamos o vetor coluna de 1's `jn` de dimensão $28 \times 1$ e a matriz de 1's `Jnn` de dimensão $28 \times 28$.
+
+$$
+j_n = \mathbf{j}_{(28 \times 1)} = [1,1,...,1]'
+$$
+
+$$
+Jnn = \mathbf{J}_{(28 \times 28)} = 
+  \begin{bmatrix}
+   1 & 1 & 1 & \dots & 1 \\
+   1 & 1 & 1 & \dots & 1 \\
+   1 & 1 & 1 &\dots & 1 \\
+   \vdots & \vdots & \vdots & \ddots & \vdots \\
+   1 & 1 & 1 & \dots & 1
+   \end{bmatrix}
+$$
+
+Além disso, note que a matriz $\mathbf{J}$ (`Jnn`) pode ser obtida por $\mathbf{J} = \mathbf{j} \space \mathbf{j}'$, ou seja, a multiplicação do vetor coluna $\mathbf{j}$ (`jn`) pela sua transposta.
+
+No R, utilizamos a função `t()` para realizar a transposição de uma matriz ou vetor.
+
+```{r}
+Jnn <- jn %*% t(jn)
+Jnn
+```
+
+$$
+\mathbf{J} = \mathbf{j} \space \mathbf{j}' = 
+\begin{bmatrix} 
+1 \\ 1 \\ \vdots \\1 
+\end{bmatrix}
+\begin{bmatrix} 
+1 & 1 & \dots & 1 
+\end{bmatrix}
+= 
+  \begin{bmatrix}
+   1 & 1 & \dots & 1 \\
+   1 & 1 & \dots & 1 \\
+   \vdots & \vdots & \ddots & \vdots \\
+   1 & 1 & \dots & 1
+   \end{bmatrix}
+$$
+
+A seguir, calcularemos a matriz de variâncias e covariâncias amostrais, dada pela equação:
+
+$$\mathbf{\Sigma} = \frac{1}{n-1} \mathbf{Y}'(\mathbf{I} - \frac{1}{n}J) \mathbf{Y}$$
+
+```{r}
+Sigma <- (1 / (n - 1)) * t(Y) %*% (In - (1/n) * Jnn) %*% Y
+Sigma
+```
+
+A função `t()` realiza a transposição de uma matriz ou vetor. Já o operador `%*%` realiza a multiplicação entre duas matrizes ou vetores conformes.
+
+No R, temos a função `cov()` que realiza o cálculo da matriz de variâncias e covariâncias. Para isso, basta declarar dentro da função a matriz desejada.
+
+```{r}
+cov(Y)
+```
+
+$$
+\mathbf{\Sigma} = 
+  \begin{bmatrix}
+   \sigma^2_1 & \sigma_{12} & \sigma_{13} & \dots & \sigma_{1p} \\
+   \sigma_{21} & \sigma^2_2 & \sigma_{23} & \dots & \sigma_{2p} \\
+   \sigma_{31} & \sigma_{32} & \sigma^2_3 &\dots & \sigma_{p3} \\
+   \vdots & \vdots & \vdots & \ddots & \vdots \\
+   \sigma_{p1} & \sigma_{p2} & \sigma_{p3} & \dots & \sigma^2_p
+   \end{bmatrix}
+$$
+
+Os elementos da diagonal principal são as variâncias e os demais elementos, as covariâncias. Note que a matriz de variâncias e covariâncias é simétrica.
+
+## Matriz de Correlações
+
+Para calcular a matriz de correlação ($\mathbf{\rho}_{ij}$), utilizamos a seguinte expressão:
+
+$$\mathbf{\rho}_{ij} = \mathbf{D}_{\sigma}^{-1} \mathbf{\Sigma}  \mathbf{D}_{\sigma}^{-1}$$
+
+em que $\mathbf{D}_{\sigma}$ é uma matriz diagonal com a raiz quadrada das variâncias, ou seja, a raiz quadrada da diagonal da matriz de variâncias e covariâncias ($\mathbf{\Sigma}$).
+
+```{r}
+D <- sqrt(diag(Sigma))
+D
+
+corr <- solve(diag(D)) %*% Sigma %*% solve(diag(D))
+corr
+```
+
+A função `sqrt()` realiza a operação raiz quadrada. Já a `solve()`, calcula a inversa de uma matriz.
+
+No R, temos a função `cor()` que realiza o cálculo da matriz de correlação. Novamente, basta declarar a matriz dentro da função.
+
+```{r}
+cor(Y)
+```
+
+$$
+\mathbf{\rho} = 
+  \begin{bmatrix}
+   1 & \rho_{12} & \rho_{13} & \dots & \rho_{1p} \\
+   \rho_{21} & 1 & \rho_{23} & \dots & \rho_{2p} \\
+   \rho_{31} & \rho_{32} & 1 &\dots & \rho_{p3} \\
+   \vdots & \vdots & \vdots & \ddots & \vdots \\
+   \rho_{p1} & \rho_{p2} & \rho_{p3} & \dots & 1
+   \end{bmatrix}
+$$
+
+Por fim, a partir da matriz de correlação ($\mathbf{\rho}_{ij}$), podemos retornar para a matriz de variâncias e covariâncias ($\mathbf{\Sigma}$) a partir da seguinte equação:
+
+$$
+\mathbf{\Sigma} = \mathbf{D}_{\sigma} \mathbf{\rho}_{ij} \mathbf{D}_{\sigma}
+$$
+
+```{r}
+Verifica <- diag(D) %*% corr %*% diag(D)
+Verifica
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+p = ncol(Y);
+n = nrow(Y);
+In = I(n);
+jn = j(n,1,1);
+Jnn = J(n,n,1);
+Sigma = (1/(n-1))*t(Y)*(In-(1/n)*Jnn)*Y;
+D = sqrt(diag(Sigma));
+corr = inv(D)*Sigma*inv(D);
+Verifica = D*corr*D;
+title 'Matriz de variâncias e covariâncias amostrais utilizando proc iml';
+print ,,Sigma[format=8.4],, 'Matriz de correlações:' ,, corr[format=8.5],, Verifica[format=8.4];
+```
+:::
+
+## Distância de Mahalanobis (Distância padronizada)
+
+::: panel-tabset
+### R
+
+Primeiramente, calcularemos o vetor de médias ($\mathbf{\mu}$) da matriz $\mathbf{Y}$.
+
+$$\mathbf{\mu} = \frac{1}n \mathbf{j}' \mathbf{Y}$$
+
+```{r}
+mi <- (1/n) * t(jn) %*% Y
+mi
+```
+
+Com o vetor de médias ($\mathbf{\mu}$), calcularemos a distância de Mahalanobis ($DM$), dada pela seguinte expressão:
+
+$$
+DM = (\mathbf{y} - \mathbf{\mu})' \mathbf{\Sigma} (\mathbf{y} - \mathbf{\mu})
+$$
+
+```{r}
+DM2 <- rep(0, n)
+for (i in 1:n) {
+  yi <- Y[i,]
+  DM <- as.numeric((yi - mi) %*% solve(Sigma) %*% t(yi - mi))
+  DM2[i] <- DM
+}
+DM2
+```
+
+No R, podemos utilizar a função `mahalanobis()` para calcular a distância de Mahalanobis. Como argumentos, temos:
+
+-   `x =`: matriz utilizada para o cálculo;
+
+-   `center =`: o vetor de médias ($\mu$);
+
+-   `cov =`: a matriz de variâncias e covariâncias ($\Sigma$).
+
+```{r}
+mahalanobis(x = Y, center = mi, cov = Sigma)
+```
+
+Ordenando os valores do vetor da distância de Mahalanobis, temos:
+
+```{r}
+rank <- rank(DM2)
+data.frame(Y, DM2, rank)
+```
+
+A observação 13 apresenta a menor distância, enquanto a 16, a maior distância de Mahalanobis.
+
+### SAS
+
+```{r}
+#| eval: false
+
+mi = (1/n)*t(jn)*y;
+print 'Vetor de médias:' mi[format=5.2],,;
+```
+
+```{r}
+#| eval: false
+
+DM2 = j(n,1,0);
+i=1;
+do while (i<=n);
+yi= Y[i,];
+DM = (yi-mi)*inv(Sigma)*t(yi-mi);
+DM2[i] = DM;
+i=i+1;
+end;
+
+rank = rank(DM2);
+print
+```
+
+```{r}
+#| eval: false
+
+'-----------------------------------------------------------------',
+'Distância de Mahalanobis de cada ponto (y) ao vetor de médias(mi)',
+'-----------------------------------------------------------------';
+print ,,Y ' ' DM2[format=8.4] ' ' rank;
+quit;
+
+proc corr cov data=cork;
+title 'Matriz de variâncias e covariâncias utilizando proc corr';
+var north east south west;
+run;
+```
+:::
+::::::
+
+# Capítulo 4 - Distribuição Normal Multivariada
+
+## Gráfico da Normal Bivariada
+
+Construiremos o gráfico da normal bivariada utilizando o pacote `plotly`. Este pacote permite confeccionar gráficos dinâmicos tridimensionais.
+
+```{r}
+#| eval: false
+
+install.packages("plotly")
+```
+
+```{r}
+#| message: false
+#| warning: false
+
+library(plotly)
+```
+
+::: panel-tabset
+### R
+
+Para construir o gráfico da normal bivariada, primeiramente, definimos os valores dos vetores das variáveis `y1` e `y2`.
+
+```{r}
+y1 <- seq(from = -4, to = 4, by = 0.1)
+y1
+
+y2 <- seq(from = -4, to = 4, by = 0.1)
+y2
+```
+
+A função `seq()` cria uma sequência de valores e possui três argumentos:
+
+-   `from =`: valor em que a sequência começa;
+
+-   `to =`: valor em que a sequência termina;
+
+-   `by =`: de quanto em quanto a sequência é construída.
+
+Em seguida, calculamos a densidade bivariada, dada pela seguinte equação:
+
+$$
+\phi = \frac{1}{2\pi \sqrt{1-r^2}} exp\left\{-\frac{y_1^2 - 2r y_1 y_2 + y_2^2}{2(1-r^2)}\right\}
+$$
+
+em que $r$ é o **coeficiente de correlação** entre `y1` e `y2`, variando de -1 a 1.
+
+O valor do coeficiente de correlação será salvo no objeto `r`. Já o objeto `pi` armazena o valor de $\pi$ com seis casas decimais.
+
+Para verificar as alterações gráficas, redefina o valor do objeto `r` (valor entre -1 e 1).
+
+```{r}
+r <- -0.75  # Modificar este valor para verificar as alterações gráficas
+pi
+```
+
+Para realizar o cálculo da densidade bivariada no R, criamos uma função (`function()`) que executa a equação definida anteriormente para cada um dos valores de `y1` e `y2`, gerando a matriz final, salva no objeto `z`.
+
+```{r}
+z <- outer(y1, y2, function(y1,y2) { 
+  phi <- 1/(2 * pi * sqrt(1 - r^2)) * exp(-(y1^2 - 2 * r * y1 * y2 + y2^2) / (2 * (1 - r^2)))
+  return(phi)
+})
+```
+
+Com isso, podemos criar o gráfico de densidade da normal bivariada.
+
+```{r}
+plot_ly(x = y1, y = y2, z = z, type = "surface") |> 
+  layout(title = paste("Densidade Normal Bivariada (r =", r, ")"))
+```
+
+Com a função `plot_ly()`, definimos os objetos que compõem os eixos x, y e z, além do estilo do gráfico (`type = "surface"`). Em seguida, utilizando a função `layout()`, inserimos o título do gráfico.
+
+### SAS
+
+```{r}
+#| eval: false
+
+%let r=-0.75; * Fixa o coeficiente de correlação entre y1 e y2;
+data Normal;
+ pi=3.1416;
+ do y1=-4 to 4 by 0.1;
+  do y2=-4 to 4 by 0.1; 
+  phi=exp(-(y1*y1-2*&r*y1*y2+y2*y2)/2/(1-&r*&r))/2/pi/sqrt(1-&r*&r);
+  output;
+  end;
+ end;
+run;
+
+goptions reset=all border;
+proc g3d data=Normal;
+ title 'Densidade Normal Bivariada (r =' &r ')';
+ plot y1*y2=phi / rotate=-20;
+run;
+```
+:::
+
+## Propriedades
+
+A seguir, serão apresentados exemplos para ilustrar as propriedades da distribuição normal multivariada.
+
+### Exemplo 1
+
+Para os exemplos dos Teoremas 1, 2 e 3 considere um vetor aleatório $\mathbf{y} \sim N_3(\mathbf{\mu}, \mathbf{\Sigma})$, em que:
+
+$$
+\mathbf{\mu} = 
+  \begin{bmatrix}
+  3 \\ 1 \\ 2
+  \end{bmatrix}
+\space e \space
+\mathbf{\Sigma} = 
+  \begin{bmatrix}
+   4 & 0 & 2 \\
+   0 & 1 & -1 \\
+   2 & -1 & 3 \\
+   \end{bmatrix}
+$$
+
+::: panel-tabset
+#### R
+
+```{r}
+mi <- c(3, 1, 2)
+mi
+
+Sigma <- matrix(c(4, 0, 2, 0, 1, -1, 2, -1, 3), nrow = 3, ncol = 3)
+Sigma
+```
+
+#### SAS
+
+```{r}
+#| eval: false
+
+options nocenter ps=1000;
+proc iml;
+reset fuzz;
+
+y = {'y1','y2','y3'};
+mi = {3,1,2};
+Sigma = {4 0 2, 0 1 -1, 2 -1 3};
+```
+:::
+
+#### Teorema 1.1
+
+Seja $\mathbf{y} \sim N_p(\mathbf{\mu}, \mathbf{\Sigma})$ e $\mathbf{a}$ um vetor $p \times 1$ de constantes. Então, a **variável aleatória** $z$ é dada por:
+
+$$z = \mathbf{a'}\mathbf{y} \sim N(\mathbf{a' \mu}, \mathbf{a'\Sigma a})$$
+
+Como exemplo, considere:
+
+$$
+z = y_1 - 2y_2 + y_3 
+\text{ ,   em que } 
+\mathbf{a} = 
+  \begin{bmatrix}
+    1 \\ -2 \\ 1
+  \end{bmatrix}
+$$
+
+::: panel-tabset
+#### R
+
+```{r}
+a <- c(1, -2, 1)
+a
+
+E_z <- t(a) %*% mi
+E_z
+
+var_z <- t(a) %*% Sigma %*% a
+var_z
+```
+
+Com isso, a variável aleatória $z$ fica:
+
+$$z = \mathbf{a'y} \sim N(\mathbf{a' \mu} = 3, \mathbf{a'\Sigma a} = 19)$$
+
+#### SAS
+
+```{r}
+#| eval: false
+
+a = {1, -2, 1};
+mi_z = t(a) * mi;
+var_z = t(a)*Sigma*a;
+print y mi Sigma,,,,, 'item (i)   ',,'z = y1-2y2+y3   ' mi_z var_z;
+```
+:::
+
+#### Teorema 1.2
+
+Seja $\mathbf{y} \sim N_p(\mathbf{\mu}, \mathbf{\Sigma})$ e $\mathbf{A}$ uma matriz $k \times p$ de constantes e posto $k \le p$. Então, o **vetor aleatório** $\mathbf{z}$ é dado por:
+
+$$\mathbf{z} = \mathbf{A} \mathbf{y} \sim N_k(\mathbf{A \mu}, \mathbf{A\Sigma A'})$$
+
+Agora, considere as seguintes combinações lineares $z_1$ e $z_2$:
+
+$$
+\begin{aligned}
+z_1 = y_1 - y_2 + y_3 \space \text{ e } \space z_2 = 3y_1 + y_2 - 2y_3 \\
+\mathbf{z} = 
+\begin{bmatrix}
+\mathbf{z_1} \\ \mathbf{z_2}
+\end{bmatrix}
+\text{ = }
+\begin{bmatrix}
+1 & -1 & 1 \\
+3 & 1 & -2
+\end{bmatrix}
+\begin{bmatrix}
+y_1 \\ y_2 \\ y_3
+\end{bmatrix}
+\text{ = }
+\mathbf{Ay}
+\end{aligned}
+$$
+
+::: panel-tabset
+#### R
+
+```{r}
+A <- matrix(c(1, -1, 1, 3, 1, -2), nrow = 2, ncol = 3, byrow = TRUE)
+A
+
+E_z1z2 <- A %*% mi
+E_z1z2
+
+cov_z1z2 <- A %*% Sigma %*% t(A)
+cov_z1z2
+```
+
+Pelo teorema, o vetor aleatório fica:
+
+$$
+\mathbf{z} = \mathbf{Ay} \sim N_2
+\left(
+  \mathbf{A \mu} = 
+    \begin{bmatrix}
+      4 \\ 6
+    \end{bmatrix},
+  \mathbf{A\Sigma A'} = 
+    \begin{bmatrix}
+      14 & 4 \\ 
+      4 & 29
+    \end{bmatrix}
+\right)
+$$
+
+#### SAS
+
+```{r}
+#| eval: false
+
+ZZ = {'z1 = y1-y2+y3','z2 = 3y1+y2-2y3'}; 
+A = {1 -1  1, 3  1 -2};
+mi_ZZ = A*mi;
+Sigma_ZZ = A*Sigma*t(A);
+print 'item (ii)',,  ZZ '     ' mi_ZZ '     ' Sigma_ZZ;
+```
+:::
+
+#### Teorema 2 {#sec-T2}
+
+Se $\mathbf{y} \sim N_p(\mathbf{\mu, \Sigma})$, então **qualquer subvetor** $r \times 1$ de $\mathbf{y}$ tem uma distribuição normal $r$-variada com médias, variâncias e covariâncias iguais às da distribuição normal $p$-variada original.
+
+Como exemplo, considere: $y_1 \sim N(3,4)$, $y_2 \sim N(1,1)$ e $y_3 \sim N(2, 3)$.
+
+::: panel-tabset
+#### R
+
+Dessa forma, o vetor $\begin{bmatrix} y_1 \\ y_2\end{bmatrix}$:
+
+```{r}
+A12 <- matrix(c(1, 0, 0, 0, 1, 0), nrow = 2, ncol = 3, byrow = TRUE)
+A12
+
+mi_12 <- A12 %*% mi
+mi_12
+
+Sigma_12 <- A12 %*% Sigma %*% t(A12)
+Sigma_12
+```
+
+$$
+\begin{bmatrix}
+  y_1 \\ y_2
+\end{bmatrix}
+  \sim N_2\left(
+    \begin{bmatrix}
+      3 \\ 1
+    \end{bmatrix}, 
+    \begin{bmatrix}
+      4 & 0 \\ 
+      0 & 1
+    \end{bmatrix}
+  \right) \\
+$$
+
+Enquanto isso, o vetor $\begin{bmatrix} y_1 \\ y_3\end{bmatrix}$:
+
+```{r}
+A13 <- matrix(c(1, 0, 0, 0, 0, 1), nrow = 2, ncol = 3, byrow = TRUE)
+A13
+
+mi_13 <- A13 %*% mi
+mi_13
+
+Sigma_13 <- A13 %*% Sigma %*% t(A13)
+Sigma_13
+```
+
+$$
+\begin{bmatrix}
+  y_1 \\ y_3
+\end{bmatrix}
+  \sim N_2\left(
+    \begin{bmatrix}
+      3 \\ 2
+    \end{bmatrix}, 
+    \begin{bmatrix}
+      4 & 2 \\ 
+      2 & 3
+    \end{bmatrix}
+  \right)
+$$
+
+#### SAS
+
+```{r}
+#| eval: false
+
+A12 = {1 0 0, 0 1 0};
+mi_12 = A12*mi;
+Sigma_12 = A12*Sigma*t(A12);
+print mi_12 Sigma_12;
+
+A13 = {1 0 0, 0 0 1};
+mi_13 = A13*mi;
+Sigma_13 = A13*Sigma*t(A13);
+print mi_13 Sigma_13;
+```
+:::
+
+#### Teorema 3
+
+Se o vetor particionado $\mathbf{v} = \begin{bmatrix} \mathbf{y} \\ \mathbf{x} \end{bmatrix} \sim N_{p+q}(\mathbf{\mu, \Sigma})$ então os subvetores aleatórios $\mathbf{y}$ e $\mathbf{x}$ são **independentes** se $\mathbf{\Sigma}_{xy} = 0$.
+
+::: panel-tabset
+#### R
+
+```{r}
+a1 <- c(1, 0, 0)
+a1
+
+b2 <- c(0, 1, 0)
+b2
+
+Sigma
+
+cov_12 <- t(a1) %*% Sigma %*% b2
+cov_12
+```
+
+#### SAS
+
+```{r}
+#| eval: false
+
+a1 = {1 0 0};
+b2 = {0 1 0};
+cov_12 = a1*Sigma*t(b2);
+print cov_12;
+```
+:::
+
+### Exemplo 2
+
+#### Teorema 4 {#sec-T4}
+
+Se $\mathbf{y}$ e $\mathbf{x}$ têm distribuição conjunta normal multivariada com $\mathbf{\Sigma}_{yx} \ne 0$ então a **distribuição condicional** de $\mathbf{y}$ dado $\mathbf{x}$, $f(\mathbf{y} \mid \mathbf{x})$, é **normal multivariada** com vetor de médias e matriz de covariâncias dados por:
+
+$$
+\begin{aligned}
+E(\mathbf{y} \mid \mathbf{x}) = \mathbf{\mu}_y + \mathbf{\Sigma}_{yx} \mathbf{\Sigma}_{xx}^{-1}(\mathbf{x} - \mathbf{\mu}_x) \\
+cov(\mathbf{y} \mid \mathbf{x}) = \mathbf{\Sigma}_{yy} - \mathbf{\Sigma}_{yx} \mathbf{\Sigma}_{xx}^{-1} \mathbf{\Sigma}_{xy}
+\end{aligned}
+$$
+
+Para ilustrar o Teorema 4, considere o vetor aleatório $\mathbf{v} \sim N_4(\mathbf{\mu, \Sigma})$ em que:
+
+$$
+\begin{aligned}
+\mathbf{\mu} = 
+\begin{bmatrix}
+2 \\ 5 \\ -2 \\ 1
+\end{bmatrix}
+\text{ e }
+\mathbf{\Sigma} = 
+\begin{bmatrix}
+9 & 0 & 3 & 3 \\
+0 & 1 & -1 & 2 \\
+3 & -1 & 6 & -3 \\
+3 & 2 & -3 & 7 \\
+\end{bmatrix}
+\end{aligned}
+$$
+
+::: panel-tabset
+#### R
+
+```{r}
+mi <- c(2, 5, -2, 1)
+mi
+
+Sigma <- matrix(
+  c(9, 0, 3, 3, 0, 1, -1, 2, 3, -1, 6, -3, 3, 2, -3, 7), 
+  nrow = 4, byrow = TRUE
+)
+Sigma
+```
+
+#### SAS
+
+```{r}
+#| eval: false
+
+options nocenter ps=1000;
+proc iml;
+reset fuzz;
+
+mi = {2,5,-2,1};
+Sigma = {9 0 3 3, 0 1 -1 2, 3 -1 6 -3, 3 2 -3 7};
+print v mi Sigma;
+```
+:::
+
+Se $\mathbf{v} = \begin{bmatrix} y_1, y_2, x_1, x_2 \end{bmatrix} '$ é um vetor particionado dessa forma, então:
+
+$$
+\mathbf{\mu_y} = 
+\begin{bmatrix} 
+2 \\ 5
+\end{bmatrix}
+, 
+\mathbf{\mu_x} =
+\begin{bmatrix} 
+-2 \\ 1
+\end{bmatrix} \\
+$$
+
+$$
+\mathbf{\Sigma_{yy}} = 
+\begin{bmatrix} 
+9 & 0 \\ 0 & 1
+\end{bmatrix}
+,
+\mathbf{\Sigma_{xx}}
+\begin{bmatrix} 
+6 & -3 \\ -3 & 7
+\end{bmatrix}
+,
+\mathbf{\Sigma_{yx}}
+\begin{bmatrix} 
+3 & 3 \\ -1 & 2
+\end{bmatrix}
+$$
+
+::: panel-tabset
+#### R
+
+```{r}
+Ay <- matrix(c(1, 0, 0, 0, 0, 1, 0, 0), nrow = 2, byrow = TRUE)
+Ay
+
+mi_y <- Ay %*% mi
+mi_y
+
+Sigma_yy <- Ay %*% Sigma %*% t(Ay)
+Sigma_yy
+
+Ax <- matrix(c(0, 0, 1, 0, 0, 0, 0, 1), nrow = 2, byrow = TRUE)
+Ax
+
+mi_x <- Ax %*% mi
+mi_x
+
+Sigma_xx <- Ax %*%Sigma %*% t(Ax)
+Sigma_xx
+
+Sigma_yx <- Ay %*% Sigma %*% t(Ax)
+Sigma_yx
+```
+
+#### SAS
+
+```{r}
+#| eval: false
+
+Ay = {1 0 0 0, 0 1 0 0};
+mi_y = Ay*mi;
+Sigma_yy = Ay*Sigma*t(Ay);
+
+Ax = {0 0 1 0, 0 0 0 1};
+mi_x = Ax*mi;
+Sigma_xx = Ax*Sigma*t(Ax);
+
+Sigma_yx = Ay*Sigma*t(Ax);
+print mi_y Sigma_yy,, mi_x Sigma_xx,, Sigma_yx;
+```
+:::
+
+Para calcular $cov(\mathbf{y} \mid \mathbf{x}) = \mathbf{\Sigma}_{yy} - \mathbf{\Sigma}_{yx} \mathbf{\Sigma}_{xx}^{-1} \mathbf{\Sigma}_{xy}$ procedemos da seguinte maneira:
+
+::: panel-tabset
+#### R
+
+```{r}
+cov_ydx <- Sigma_yy - Sigma_yx %*% solve(Sigma_xx) %*% t(Sigma_yx)
+cov_ydx
+```
+
+$$
+cov(\mathbf{y} \mid \mathbf{x}) = 
+\begin{bmatrix} 
+3,82 & -0,73 \\ -0,73 & 0,42
+\end{bmatrix}
+$$
+
+#### SAS
+
+```{r}
+#| eval: false
+
+cov_ydx = Sigma_yy-Sigma_yx*inv(Sigma_xx)*t(Sigma_yx);
+
+print Sigma_yy[format=6.0],, cov_ydx[format=6.2];
+```
+:::
+
+Note que a variância de $y_1$ e de $y_2$ são maiores do que as variâncias condicionais:
+
+```{r}
+Sigma_yy
+
+cov_ydx
+```
+
+$$
+\begin{aligned}
+var(y_1) = 9 \text{ e } var(y_1 \mid x_1, x_2) = 3,82 \\
+var(y_2) = 1 \text{ e } var(y_2 \mid x_1, x_2) = 0,42
+\end{aligned}
+$$
+
+### Exemplo 3
+
+#### Teorema 4 (Corolário)
+
+Considere:
+
+$$
+\mathbf{v} = 
+\begin{bmatrix} 
+y, & x_1, & \dots, & x_q
+\end{bmatrix}
+' = 
+\begin{bmatrix} 
+y \\ \mathbf{x'}
+\end{bmatrix} 
+\text{ com } 
+\mathbf{\mu} = 
+\begin{bmatrix} 
+\mu_y \\ \mathbf{\mu_x}
+\end{bmatrix} 
+\text{ e } 
+\mathbf{\Sigma} = 
+\begin{bmatrix}
+\sigma_y^2 & \mathbf{\sigma}_{yx}' \\
+\mathbf{\sigma}_{yx} & \mathbf{\Sigma}_{xx}
+\end{bmatrix}
+\text{, }
+$$
+
+então $y \mid \mathbf{x}$ tem distribuição normal univariada com:
+
+$$
+\begin{aligned}
+E(y \mid \mathbf{x}) = \mu_y + \mathbf{\sigma}_{yx}' \mathbf{\Sigma}_{xx}^{-1} (\mathbf{x} - \mathbf{\mu}_x) \\
+var(y \mid \mathbf{x}) = \sigma_{y}^2 - \mathbf{\sigma}_{yx}' \mathbf{\Sigma}_{xx}^{-1} \mathbf{\sigma}_{yx}
+\end{aligned}
+$$
+
+Como exemplo, seguimos com o vetor $\mathbf{v}$ utilizado no [Teorema 4- @sec-T4].
+
+$$
+\mathbf{v} \sim N_4(\mathbf{\mu}, \mathbf{\Sigma})
+\text{ , }
+\mathbf{\mu} = 
+\begin{bmatrix}
+2 \\ 5 \\ -2 \\ 1
+\end{bmatrix}
+\text{ e }
+\mathbf{\Sigma} = 
+\begin{bmatrix}
+9 & 0 & 3 & 3 \\
+0 & 1 & -1 & 2 \\
+3 & -1 & 6 & -3 \\
+3 & 2 & -3 & 7 \\
+\end{bmatrix}
+$$
+
+::: panel-tabset
+#### R
+
+```{r}
+mi <- c(2, 5, -2, 1)
+mi
+
+Sigma <- matrix(
+  c(9, 0, 3, 3, 0, 1, -1, 2, 3, -1, 6, -3, 3, 2, -3, 7), 
+  nrow = 4, byrow = TRUE
+  )
+Sigma
+```
+
+#### SAS
+
+```{r}
+#| eval: false
+
+options nocenter ps=1000;
+proc iml;
+reset fuzz;
+
+mi = {2,5,-2,1};
+Sigma = {9 0 3 3, 0 1 -1 2, 3 -1 6 -3, 3 2 -3 7};
+print v mi Sigma;
+```
+:::
+
+Se $\mathbf{v} = \begin{bmatrix} y, & x_1, & x_2, & x_3 \end{bmatrix}'$ então:
+
+$$\mu_y = 2 \text{ e } var(y) = 9 \\$$
+
+$$
+\mathbf{\mu}_x = 
+\begin{bmatrix}
+5 \\ -2 \\ 1
+\end{bmatrix}
+\text{ , }
+\mathbf{\Sigma}_{xx} = 
+\begin{bmatrix}
+1 & -1 & 2 \\
+-1 & 6 & -3 \\
+2 & -3 & 7
+\end{bmatrix}
+\text{ e }
+\mathbf{\sigma}_{yx} = 
+\begin{bmatrix}
+0 \\ 3 \\ 3
+\end{bmatrix}
+$$
+
+::: panel-tabset
+#### R
+
+```{r}
+Ay <- matrix(c(1, 0, 0, 0), nrow = 1)
+Ay
+
+mi_y <- Ay %*% mi
+mi_y
+
+Sigma_yy <- Ay %*% Sigma %*% t(Ay)
+Sigma_yy
+
+Ax <- matrix(
+  c(0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1), 
+  nrow = 3, ncol = 4, byrow = TRUE
+)
+Ax
+
+mi_x <- Ax %*% mi
+mi_x
+
+Sigma_xx <- Ax %*% Sigma %*% t(Ax)
+Sigma_xx
+
+sigma_yx <- Ay %*% Sigma %*% t(Ax)
+sigma_yx
+```
+
+#### SAS
+
+```{r}
+#| eval: false
+
+Ay = {1 0 0 0};
+mi_y = Ay*mi;
+Sigma_yy = Ay*Sigma*t(Ay);
+
+Ax = {0 1 0 0, 0 0 1 0, 0 0 0 1};
+mi_x = Ax*mi;
+Sigma_xx = Ax*Sigma*t(Ax);
+
+Sigma_yx = Ay*Sigma*t(Ax);
+print mi_y Sigma_yy,, mi_x Sigma_xx,, Sigma_yx;
+```
+:::
+
+Pelo Corolário, temos:
+
+$$
+var(y \mid x_1, x_2, x_3) = \sigma_{y}^2 - \mathbf{\sigma}_{yx}' \mathbf{\Sigma}_{xx}^{-1} \mathbf{\sigma}_{yx}
+$$
+
+::: panel-tabset
+#### R
+
+```{r}
+cov_ydx <- Sigma_yy - sigma_yx %*% solve(Sigma_xx) %*% t(sigma_yx)
+cov_ydx
+```
+
+Portanto, $var(y \mid x_1, x_2, x_3) = `r round(cov_ydx, 3)`$.
+
+Note que a variância de $y$ é maior do que a variância condicional:
+
+```{r}
+Sigma_yy
+
+cov_ydx
+```
+
+$$
+\begin{aligned}
+var(y) &= `r round(Sigma_yy, 3)` \\
+var(y \mid x_1, x_2, x_3) &= `r round(cov_ydx, 3)`
+\end{aligned}
+$$
+
+#### SAS
+
+```{r}
+#| eval: false
+
+cov_ydx = Sigma_yy-Sigma_yx*inv(Sigma_xx)*t(Sigma_yx);
+
+print Sigma_yy[format=6.0],, cov_ydx[format=6.2];
+```
+:::
+
+## Correlação Parcial
+
+Considere um vetor $\mathbf{v}$, formado por um subconjunto de $y's$ que inclui $y_1$ e $y_2$, sendo denotado por $\mathbf{y}$. O outro subconjunto de $y's$ que inclui $y_3$ e $y_4$ é denotado por $\mathbf{x}$.
+
+$$
+\mathbf{v} = 
+\begin{bmatrix}
+\mathbf{y} \\ \mathbf{x}
+\end{bmatrix}
+\text{, em que }
+\mathbf{y} = 
+\begin{bmatrix}
+y_1, ..., y_2
+\end{bmatrix}
+\text{'  e  }
+\mathbf{x} = 
+\begin{bmatrix}
+y_3, ..., y_4
+\end{bmatrix}
+\text{'}
+$$
+
+Vamos comparar o coeficiente de correlação parcial entre $y_1$ e $y_2$ ($\rho_{12}$) com o coeficiente de correlação parcial condicional de $y_1$ e $y_2$ dado $y_3$ e $y_4$ ($\rho_{12.34}$).
+
+Para isso, utilizaremos a seguinte matriz de variâncias e covariâncias:
+
+$$
+\mathbf{\Sigma} = 
+  \begin{bmatrix}
+    9 & 0 & 3 & 3 \\
+    0 & 1 & -1 & 2 \\
+    3 & -1 & 6 & -3 \\
+    3 & 2 & -3 & 7 \\
+   \end{bmatrix}
+\text{.}
+$$
+
+Primeiramente, calcularemos a correlação linear entre as variáveis $y_1$ e $y_2$, ou seja, $\rho_{12}$ (vide @sec-corr).
+
+::: panel-tabset
+### R
+
+Com a matriz de variâncias e covariâncias salva no objeto `Sigma`, calculamos a raiz quadrada da diagonal de `Sigma`, ou seja, a raiz quadrada das variâncias (`D`).
+
+```{r}
+Sigma <- matrix(
+  c(9, 0, 3, 3, 0, 1, -1, 2, 3, -1, 6, -3, 3, 2, -3, 7), 
+  nrow = 4, byrow = TRUE
+)
+Sigma
+
+D <- sqrt(diag(Sigma))
+D
+```
+
+Com a raiz quadrada das variâncias (`D`), calculamos os coeficientes de correlação por meio da seguinte expressão:
+
+$$\mathbf{\rho} = \mathbf{D}_{\sigma}^{-1} \mathbf{\Sigma} \mathbf{D}_{\sigma}^{-1}$$
+
+```{r}
+Ro <- solve(diag(D)) %*% Sigma %*% solve(diag(D))
+Ro
+```
+
+Assim, verificamos que as variáveis $y_1$ e $y_2$ são não correlacionadas ($\rho_{12} = \rho_{21} = 0$).
+
+### SAS
+
+```{r}
+#| eval: false
+
+options nocenter ps=1000;
+proc iml;
+reset fuzz;
+
+Sigma = {9  0  3  3, 
+         0  1 -1  2, 
+         3 -1  6 -3, 
+         3  2 -3  7};
+D = sqrt(diag(Sigma));
+Ro = inv(D)*Sigma*inv(D);
+print Sigma '     ' Ro[format=6.2];
+```
+:::
+
+Para calcular o coeficiente de correlação parcial entre $y_1$ e $y_2$ dada a ocorrência de $y_3$ e $y_4$ ($\rho_{12.34}$), particionaremos $\Sigma$ da seguinte maneira:
+
+$$
+\mathbf{\Sigma}_{yy} =
+  \begin{bmatrix}
+    9 & 0 \\
+    0 & 1
+  \end{bmatrix}
+\text{  ,  }
+\mathbf{\Sigma}_{xx} =
+  \begin{bmatrix}
+    6 & -3 \\
+    -3 & 7
+  \end{bmatrix}
+,\mathbf{\Sigma}_{yx} =
+  \begin{bmatrix}
+    3 & 3 \\
+    -1 & 2
+  \end{bmatrix}
+$$
+
+::: panel-tabset
+### R
+
+Para particionar $\mathbf{\Sigma}$, utilizaremos o [Teorema 2 -@sec-T2].
+
+A primeira partição ($\mathbf{\Sigma}_{yy}$) fica:
+
+```{r}
+Ay <- matrix(c(1, 0, 0, 0, 0, 1, 0, 0), nrow = 2, byrow = TRUE)
+Ay
+
+Sigma_yy <- Ay %*% Sigma %*% t(Ay)
+Sigma_yy
+```
+
+Note que esta partição corresponde ao $\rho_{12} = 0$:
+
+```{r}
+Dyy <- sqrt(diag(Sigma_yy))
+Dyy
+
+Ro_yy <- solve(diag(Dyy)) %*% Sigma_yy %*% solve(diag(Dyy))
+Ro_yy
+```
+
+Para a partição $\mathbf{\Sigma}_{xx}$ temos:
+
+```{r}
+Ax <- matrix(c(0, 0, 1, 0, 0, 0, 0, 1), nrow = 2, byrow = TRUE)
+Ax
+
+Sigma_xx <- Ax %*% Sigma %*% t(Ax)
+Sigma_xx
+```
+
+Por fim, a partição $\mathbf{\Sigma}_{yx}$:
+
+```{r}
+Sigma_yx <- Ay %*% Sigma %*% t(Ax)
+Sigma_yx
+```
+
+Usando o [Teorema 4 -@sec-T4], obtemos a matriz de covariâncias condicionais de $y_1$ e $y_2$ dado $y_3$ e $y_4$:
+
+$$cov(y \mid x) = \mathbf{\Sigma}_{yy} - \mathbf{\Sigma}_{yx} \mathbf{\Sigma}_{xx}^{-1} \mathbf{\Sigma}_{xy}$$
+
+```{r}
+cov_ydx <- Sigma_yy - Sigma_yx %*% solve(Sigma_xx) %*% t(Sigma_yx)
+cov_ydx
+```
+
+Note que $\mathbf{\Sigma}$ é uma matriz simétrica, logo $\mathbf{\Sigma}_{yx} = \mathbf{\Sigma}'_{xy} \iff \mathbf{\Sigma}_{xy} = \mathbf{\Sigma}'_{yx}$.
+
+Assim, podemos calcular o coeficiente de correlação parcial $\rho_{12.34}$:
+
+```{r}
+D <- sqrt(diag(cov_ydx))
+D
+
+Ro_ydx <- solve(diag(D)) %*% cov_ydx %*% solve(diag(D))
+Ro_ydx
+```
+
+Portanto, conhecendo os valores de $y_3$ e $y_4$, a correlação parcial entre $y_1$ e $y_2$ é negativa ($\rho_{12.34} = -0,571$) e diferente da correlação linear simples ($\rho_{12} = 0$).
+
+```{r}
+Ro_yy
+Ro_ydx
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+Ay = {1 0 0 0, 0 1 0 0};
+Sigma_yy = Ay*Sigma*t(Ay);
+Dyy = sqrt(diag(Sigma_yy));
+Ro_yy = inv(Dyy)*Sigma_yy*inv(Dyy);
+
+Ax = {0 0 1 0, 0 0 0 1};
+Sigma_xx = Ax*Sigma*t(Ax);
+
+Sigma_yx = Ay*Sigma*t(Ax);
+
+cov_ydx = Sigma_yy-Sigma_yx*inv(Sigma_xx)*t(Sigma_yx);
+D = sqrt(diag(cov_ydx));
+Ro_ydx = inv(D)*cov_ydx*inv(D);
+
+print Ro_yy[format=8.2] '    ' Ro_ydx[format=8.3];
+```
+:::
+
+# Capítulo  6 - Regressão Linear Simples
+
+## Estimação e Teste de Hipóteses
+
+O modelo de regressão linear simples para $n$ observações pode ser escrito como:
+
+$$
+y_i = \beta_0 + \beta_1 x_i + \epsilon_i \space , \quad \text{para } i = 1, \dots,n 
+$$
+
+em que:
+
+-   $y$ é a variável resposta;
+
+-   $x_i$ é a variável regressora (única variável preditora de $y$);
+
+-   $\beta_0 \text{ e } \beta_1$ são os parâmetros do modelo;
+
+-   $\epsilon_i$ o termo de erro do modelo.
+
+Como suposições do modelo, temos:
+
+-   $E(\epsilon_i) = 0, \forall \space i = 1,\dots,n$ e $E(y_i) = \beta_0 + \beta_1 x_i$, ou seja, $y_i$ só depende de $x_i$ e que outras variações são aleatórias;
+
+-   $var(\epsilon_i) = \sigma^2, \forall \space i = 1,\dots,n$ e $var(y_i) = \sigma^2$, ou seja, a variância não depende dos valores de $x_i$ (homocedasticidade);
+
+-   $cov(\epsilon_i, \epsilon_j) = 0, \forall \space i \ne j$ e $cov(y_i, y_j) = 0$, portanto, não correlacionados entre si.
+
+O exemplo a seguir trata da seguinte situação: *Estudantes de Estatística alegam que as tarefas de casa não ajudam a prepará-los para o exame final. Os escores do exame (*$y$) e das tarefas ($x$) para os 18 alunos da classe foram:
+
+::: panel-tabset
+### R
+
+```{r}
+y <- c(95,80,0,0,79,77,72,66,98,90,0,95,35,50,72,55,75,66)
+
+x1 <- c(96,77,0,0,78,64,89,47,90,93,18,86,0,30,59,77,74,67)
+```
+
+O objeto `y`, variável resposta, corresponde aos escores na prova e o `x1`, variável regressora, aos escores nas tarefas.
+
+### SAS
+
+```{r}
+#| eval: false
+
+options nocenter ls=90 ps=1000;
+
+title 'Exemplo 6.2. Relation between exam score (y) and homework score (x)';
+proc iml;
+y  = {95,80,0,0,79,77,72,66,98,90, 0,95,35,50,72,55,75,66};
+x1 = {96,77,0,0,78,64,89,47,90,93,18,86, 0,30,59,77,74,67};
+```
+:::
+
+### Análise exploratória
+
+Para visualizar a dispersão dos dados, construiremos um gráfico de pontos (gráfico de dispersão) entre as notas dos alunos na prova (`y`) e nas tarefas de casa (`x1`). Para isso, utilizaremos os recursos do pacote `ggplot2`.
+
+```{r}
+#| warning: false
+
+library(ggplot2)
+```
+
+```{r}
+notas <- data.frame(y, x1)
+notas
+
+ggplot(data = notas, aes(x = x1, y = y)) +
+  geom_point()
+```
+
+Primeiramente, criamos um *data frame* com as notas dos alunos. Em seguida, com a função `ggplot()`, atribuímos a variável nota nas tarefas (`x1`) ao eixo das abscissas e a nota na prova (`y`) ao eixo das ordenadas. Com a `geom_point()`, adicionamos a camada gráfica referente à geometria de pontos, ou seja, a geometria do gráfico de dispersão. Note que as funções `ggplot()` e `geom_point()` são ligadas pelo operador `+`.
+
+### Estimação dos parâmetros $\beta_0$ e $\beta_1$ {#sec-estima-beta}
+
+Para estimar os parâmetros $\beta_0$ e $\beta_1$, utilizaremos o **Método dos Mínimos Quadrados Ordinários (MQO)**. O método consiste em achar os estimadores $\hat\beta_0$ e $\hat\beta_1$ que minimizem a soma de quadrados dos desvios $\sum^n_{i=1} (y_i - \hat{y}_i)^2$.
+
+Primeiramente, criaremos os seguintes objetos:
+
+-   `n`: número de observações $n$;
+
+-   `jn`: vetor coluna de 1's $\mathbf{j}$;
+
+-   `Jnn`: matriz de 1's $\mathbf{J}$;
+
+-   `In`: matriz identidade $\mathbf{I}$.
+
+::: panel-tabset
+### R
+
+```{r}
+n <- length(y)
+n
+
+jn <- matrix(data = 1, nrow = n, ncol = 1)
+jn
+
+Jnn <- jn %*% t(jn)
+Jnn
+
+In <- diag(n)
+In
+```
+
+As operações matriciais para obter $\hat\beta_1$ e $\hat\beta_0$ são:
+
+$$
+\begin{align}
+\hat\beta_1 &= \frac{\left[\mathbf{x}' \left(\mathbf{I} - \frac{1}n \mathbf{J} \right) \mathbf{y}\right]} {\left[\mathbf{x}' \left(\mathbf{I} - \frac{1}n \mathbf{J} \right) \mathbf{x}\right]} \\
+\hat\beta_0 &= \frac{1}n \mathbf{j}' (\mathbf{y} - \beta_1 \mathbf{x})
+\end{align}
+$$
+
+```{r}
+Beta1 <- as.numeric(t(x1) %*% (In - (1 / n) * Jnn) %*% y / (t(x1) %*% (In - (1 / n) * Jnn) %*% x1))
+Beta1
+
+Beta0 <- as.numeric((1 / n) * t(jn) %*% (y - Beta1 * x1))
+Beta0
+```
+
+O R possui a função `lm()`, que nos retorna as estimativas dos parâmetros de um modelo linear. Para isso, dentro da função, colocamos os valores de `y` e `x1` ligados pelo operador `~`, que representa uma fórmula.
+
+```{r}
+lm(y ~ x1)
+```
+
+Com isso, a equação predita fica:
+
+$$\hat{y}_i = 10.7269 + 0.8726 x_i$$
+
+Graficamente, temos:
+
+```{r}
+ggplot(data = notas, aes(x = x1, y = y)) +
+  geom_point() + 
+  geom_abline(intercept = 10.7269, slope = 0.8726, color = "red")
+```
+
+Com a função `geom_abline()`, declaramos o $\hat\beta_0 = 10.7269$ no argumento `intercept =` e $\hat\beta_1 = 0.8726$ no argumento `slope =`.
+
+Também podemos utilizar a função `geom_smooth()` para construir a reta de regressão. Essa função calcula, automaticamente, os valores do $\hat\beta_0$ e $\hat\beta_1$ para construir a reta.
+
+```{r}
+#| message: false
+
+ggplot(data = notas, aes(x = x1, y = y)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red", se = FALSE)
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+n = nrow(y);
+jn = j(n,1,1);
+Jnn = j(n,n,1);
+In = I(n);
+X = jn||x1;
+y_barra = (1/n)*Jnn*y;
+Tot = y-y_barra;
+SQTotal = t(Tot)*(Tot);
+* pág.135;
+Beta1 = t(x1)*(In-(1/n)*Jnn)*y/(t(x1)*(In-(1/n)*Jnn)*x1);
+Beta0 = (1/n)*t(jn)*(y - Beta1*x1);
+print 'Estimativas dos parâmetros da reta:' Beta0[format=8.4] Beta1[format=8.4],,,;
+```
+:::
+
+### Estimação da variância ($\sigma^2$) {#sec-estvar}
+
+Para estimar a variância $\sigma^2$, utilizamos a seguinte expressão:
+
+$$
+s^2 = 
+\frac{(\mathbf{y} - \mathbf{\hat{y}})' \space (\mathbf{y} - \mathbf{\hat{y}})}{n-2} =  \frac{SQRes}{n-2}
+$$
+
+Em que $SQRes$ é a soma de quadrados dos resíduos e $\hat{y}$, os valores estimados de $\mathbf{y}$.
+
+::: panel-tabset
+### R
+
+```{r}
+y_hat <- Beta0 + Beta1 * x1
+y_hat
+
+Res <- y - y_hat
+Res
+
+SQRes <- t(Res) %*% Res
+SQRes
+
+s2 <- as.numeric(SQRes / (n - 2))
+s2
+```
+
+Para calcular o resíduo padronizado, dividimos o resíduo pelo desvio padrão da variância estimada ($\sqrt{s^2}$).
+
+```{r}
+res_pad <- Res / sqrt(s2)
+res_pad
+```
+
+```{r}
+#| echo: false
+
+tab1 <- data.frame(y, y_hat, Res, res_pad)
+
+kableExtra::kbl(
+  x = tab1, digits = 4, align = "c",
+  col.names = c("Valores observados(`y`)", "Valores estimados(`y_hat`)",
+                "Resíduo(`Res`)", "Resíduo Padronizado(`res_pad`)")
+) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Variância dos dados originais e desvio padrão estimado:
+
+```{r}
+var_y <- (t(y) %*% (In - (1/n) * Jnn) %*% y) / (n - 1)
+var_y
+
+s <- sqrt(s2)
+s
+```
+
+```{r}
+#| echo: false
+
+tab2 <- data.frame(var_y, s2, s)
+
+kableExtra::kbl(
+  x = tab2, digits = 4, align = "c",
+  col.names = c("Variância dos dados originais (`var_y`)", 
+                "Variância de y|x (`s2`)",
+                "Desvio padrão de y|x (`s`)")
+) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+k = 1;
+
+y_hat = Beta0 + Beta1*x1;
+Reg = y_hat-y_barra;
+SQReg = t(Reg)*Reg;
+
+Res = y-y_hat;
+SQRes = t(Res)*Res;
+s2 = SQRes/(n-k-1);
+* s2 = (t(y)*y - t(Beta)*t(X)*y)/(n-k-1);
+res_pad = res/sqrt(s2);
+
+*pág. 141;
+print 'Valores observados(y) e estimados(y_hat), residuo(res) e residuo padronizado(res_pad):',
+      '--------------------------------------------------------------------------------------'; 
+print y '   ' y_hat [format=8.4] '   ' res [format=8.4]  '   ' res_pad [format=8.4],,,;
+```
+
+```{r}
+#| eval: false
+
+var_y = (t(y)*(In - (1/n)*Jnn)*y)/(n-1); * Calcula a variância amostral de y;
+s = sqrt(s2);
+
+print 'Variância dos dados originais:' var_y [format=10.4],,
+      'Variância de y|x:             ' s2[format=10.4],,
+      'Desvio padrão de y|x :        ' s[format=10.4] ,,,;
+```
+:::
+
+### Teste de Hipóteses e Intervalo de Confiança para $\beta_1$
+
+Realizaremos um teste de hipótese $H_0: \beta_1 = 0$, com a suposição que $y_i \sim N(\beta_0+ \beta_1x_i, \space \sigma^2)$ ou $\epsilon_i \sim N(0, \sigma^2)$.
+
+Das propriedades de $\hat\beta_1$ e $s^2$, a estatística t é dada por:
+
+$$
+t = \frac{\hat\beta_1}{\sqrt{\frac{s^2}{\sum^n_{i=1}(x_i-\bar{x})^2}}} =  \frac{\hat\beta_1}{\text{Erro padrão}}
+$$
+
+::: panel-tabset
+### R
+
+```{r}
+x_barra <- t(jn) %*% (x1 / n)
+x_barra
+
+var_Beta0 <- s2 * ((1 / n) + (x_barra^2 / (t(x1) %*% (In - (1 / n) * Jnn) %*% x1)))
+var_Beta0
+
+stderr_Beta0 <- sqrt(var_Beta0)
+stderr_Beta0
+
+var_Beta1 <- s2 / (t(x1) %*% (In - (1 / n) * Jnn) %*% x1)
+var_Beta1
+
+stderr_Beta1 <- sqrt(var_Beta1)
+stderr_Beta1
+```
+
+Como valores da estatística t, temos:
+
+```{r}
+t0 <- Beta0 / stderr_Beta0
+t0
+
+t1 <- Beta1 / stderr_Beta1
+t1
+```
+
+Para construir os limites de intervalo de confiança:
+
+$$
+\hat\beta \pm t_{\alpha/2, n-2} \sqrt{\frac{s^2}{\sum^n_{i=1}(x_i-\bar{x})^2}}
+$$
+
+onde $t_{(\alpha/2, n-2)}$ é o percentil de ordem $100(1-\alpha)\%$ da distribuição $t$ com $n-2$ graus de liberdade e $\alpha$ é o nível de significância do teste.
+
+```{r}
+ttab <- qt(0.975, n - 2) # quantil t com probabilidade 0.975 e gl = n-2
+ttab
+
+liminf0 <- Beta0 - ttab * stderr_Beta0
+liminf0
+
+limsup0 <- Beta0 + ttab * stderr_Beta0
+limsup0
+
+liminf1 <- Beta1 - ttab * stderr_Beta1
+liminf1
+
+limsup1 <- Beta1 + ttab * stderr_Beta1
+limsup1
+```
+
+Dado que o $t$ calculado para $\beta_1$ é maior que o limite superior, temos evidências para rejeitar $H_0: \beta_1 = 0$, com nível de significância de 5%.
+
+```{r}
+#| echo: false
+
+tab3 <- data.frame(
+  param = c("Bo", "B1"),
+  estimado = c(Beta0, Beta1),
+  var = c(var_Beta0, var_Beta1),
+  stderr = c(stderr_Beta0, stderr_Beta1),
+  t = c(t0, t1),
+  ic = c("[-3.301 , 24.755]", "[0.662 , 1.083]")
+)
+
+kableExtra::kbl(
+  x = tab3, digits = 4, align = "c",
+  col.names = c("Parâmetro", "Estimado", "Variância", "Erro Padrão", "t", "IC 95%")
+) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+x_barra = t(jn)*x1/n;
+var_Beta0 = s2*(1/n + x_barra**2/(t(x1)*(In-(1/n)*Jnn)*x1));
+stderr_Beta0 = sqrt(var_Beta0);
+
+var_Beta1 = s2/(t(x1)*(In-(1/n)*Jnn)*x1);
+stderr_Beta1 = sqrt(var_Beta1);
+```
+
+```{r}
+#| eval: false
+
+ttab = tinv(0.975,n-2);
+liminf0 = Beta0-ttab*stderr_Beta0; limsup0 = Beta0+ttab*stderr_Beta0;
+liminf1 = Beta1-ttab*stderr_Beta1; limsup1 = Beta1+ttab*stderr_Beta1;
+*pág.146;
+print Beta0[format=10.4] var_Beta0[format=10.4] stderr_Beta0[format=10.4]
+      '     I.C.(Beta0,95%) = ' liminf0[format=10.4] limsup0[format=10.4] ,,, 
+      Beta1[format=10.4] var_Beta1[format=10.4] stderr_Beta1[format=10.4] 
+      '     I.C.(Beta1,95%) = ' liminf1[format=10.4] limsup1[format=10.4] ,,,;
+```
+:::
+
+### Coeficiente de Determinação ($R^2$)
+
+O coeficiente de determinação ($R^2$) indica a proporção da variação em $y$ que é explicada pelo modelo ou que é devida à regressão em $x$. É definido como:
+
+$$R^2 = \frac{SQReg}{SQTotal} = 1 - \frac{SQRes}{SQTotal}$$
+
+em que:
+
+-   $SQReg$ é a soma de quadrados da regressão;
+
+-   $SQRes$ é a soma de quadrados dos resíduos;
+
+-   $SQTotal$ é a soma de quadrados total ($SQTotal = SQReg + SQRes$).
+
+::: panel-tabset
+### R
+
+Para calcular $SQReg$:
+
+```{r}
+y_barra <- (1 / n) * Jnn %*% y
+y_barra
+
+Reg <- y_hat - y_barra
+Reg
+
+SQReg <- t(Reg) %*% Reg
+SQReg
+```
+
+Já $SQTotal$:
+
+```{r}
+Tot <- y - y_barra
+Tot
+
+SQTotal <- t(Tot) %*% Tot
+SQTotal
+
+SQTotal <- SQReg + SQRes
+SQTotal
+```
+
+Assim, o **coeficiente de determinação** é dado por:
+
+```{r}
+R2 <- SQReg / SQTotal
+R2
+```
+
+O **coeficiente de correlação** ($r$) é dado pela raiz quadrada do coeficiente de determinação ($R^2$).
+
+```{r}
+r <- sqrt(R2)
+r
+```
+
+```{r}
+#| echo: false
+
+tab4 <- data.frame(R2, r)
+
+kableExtra::kbl(
+  x = tab4, digits = 4, align = "c",
+  col.names = c("Coeficiente de determinação (R2)", 
+                "Coeficiente de correlação (r)")
+) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+A estatística t para testar $H_0: \beta_1 = 0$ também pode ser expressa em termos de $r$:
+
+$$
+t = \frac{r \space \sqrt{n - 2}}{\sqrt{1-r^2}}
+$$
+
+```{r}
+tcalc1 <- r * sqrt(n - 2) / (sqrt(1 - r^2))
+tcalc1
+
+tcalc2 <- Beta1 / stderr_Beta1
+tcalc2
+```
+
+Com a estatística t, calculamos o p-valor da seguinte maneira:
+
+```{r}
+p_valor <- 2 * (1 - pt(abs(tcalc1), n - 2))
+p_valor
+```
+
+Onde a função `pt()` retorna a função de distribuição da estatística t.
+
+Dado que o p-valor é menor que $\alpha = 0,05$, rejeitamos $H_0: \beta_1 = 0$.
+
+Por fim, podemos ter uma visão geral dos resultados da análise de regressão com a função `summary()`, a partir do modelo criado com a função `lm()`.
+
+```{r}
+modelo <- lm(y ~ x1)
+
+summary(modelo)
+```
+
+```{r}
+#| layout-ncol: 2
+
+plot(modelo)
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+R2 = SQReg/SQTotal;  * Coeficiente de determinação - R2';
+
+corr = sqrt(R2);
+
+print '     SQTotal  =     SQReg   +    SQRes',,
+       SQTotal[format=12.4] SQReg[format=12.4] SQRes[format=12.4],,,
+      'Coeficiente de determinação (R2): ' R2[format=10.4],,,
+      'Coeficiente de correlação (r):    ' corr[format=10.4],,,;
+
+tcalc1 = Beta1/stderr_Beta1; * Para testar H0: Beta1 = 0;
+tcalc2 = corr*sqrt(n-2)/(sqrt(1-corr**2));
+p_valor = 2*(1-cdf('t',abs(tcalc1),n-2));
+
+print 'H0: Beta1 = 0   ' tcalc1[format=10.4] tcalc2[format=10.4] p_valor[format=10.4];
+
+quit;
+```
+:::
+
+# Capítulo  7 e 8 - Regressão Linear Múltipla
+
+## Estimação {#sec-rlmest}
+
+Em regressão múltipla, assumimos uma relação linear da variável resposta $y$ com mais de uma variável preditora $x_1, x_2, \dots, x_k$, a fim de predizer os valores de $y$. O modelo pode ser representado da seguinte maneira:
+
+$$
+y_i = \beta_0 + \beta_1x_{i1} + \beta_2x_{i2} + \dots \beta_kx_{ik} + \epsilon_i
+\space, \quad i = 1,2, \dots , n \space \text{observações}
+$$
+
+Matricialmente, o modelo é dado por:
+
+$$
+\begin{bmatrix}
+y_1 \\ y_2 \\ \vdots \\ y_n
+\end{bmatrix}
+= 
+\begin{bmatrix}
+1 & x_{11} & x_{12} & \dots & x_{1k} \\ 
+1 & x_{21} & x_{22} & \dots & x_{2k} \\ 
+\vdots & \vdots & \vdots & \ddots & \vdots\\ 
+1 & x_{n1} & x_{n2} & \dots & x_{nk}
+\end{bmatrix}
+\begin{bmatrix}
+\beta_0 \\ \beta_1 \\ \beta_2 \\ \vdots \\ \beta_k
+\end{bmatrix}
++
+\begin{bmatrix}
+\epsilon_1 \\ \epsilon_2 \\ \vdots \\ \epsilon_k
+\end{bmatrix}
+$$
+
+$$\mathbf{y} = \mathbf{X} \boldsymbol{\beta} + \boldsymbol{\epsilon}$$
+
+-   $\mathbf{y}$: vetor dos valores observados $n \times 1$;
+
+-   $\mathbf{X}$: matriz das variáveis preditoras $n \times (k + 1)$, com $n > (k+1)$ e posto $k + 1$;
+
+-   $\boldsymbol{\beta}$: vetor de parâmetros $(k + 1) \times 1$;
+
+-   $\boldsymbol{\epsilon}$: vetor de erros $n \times 1$.
+
+Como suposições do modelos, temos:
+
+-   $E(\boldsymbol{\epsilon}) = 0$ ou $E(\mathbf{y}) = \mathbf{X} \boldsymbol{\beta}$;
+
+-   $cov(\boldsymbol{\epsilon}) = \sigma^2\mathbf{I}$ ou $cov(\mathbf{y}) = \sigma^2\mathbf{I}$.
+
+Os parâmetros $\beta$ são denominados **coeficientes parciais de regressão**, pois expressam o seu efeito coletivo em $E(\mathbf{y})$ na presença das demais variáveis no modelo. Por exemplo, $\beta_1$ mostra o efeito da variável $x_1$ sobre $E(\mathbf{y})$ na presença das demais variáveis $x$. Caso seja retirado algum $x$ deste modelo, o efeito de $x_1$ pode ser diferente.
+
+Para representar esta diferença, utilizamos um asterisco nos parâmetros beta ($\beta^*$) do **modelo reduzido**.
+
+$$
+\begin{align}
+y &= \beta_0 + \beta_1x_1 + \beta_2x_2 + \epsilon \\
+y &= \beta_0^* + \beta^*_1x_1 + \epsilon \\
+\end{align}
+$$
+
+A primeira equação é referente ao **modelo completo**, cujos valores de $\beta_0$ e $\beta_1$ serão diferentes de $\beta^*_0$ e $\beta^*_1$, respectivos ao **modelo reduzido**, caso retirarmos $x_2$ do modelo completo.
+
+O exemplo a seguir é baseado em Freund e Minton (1979, p. 36-39), cujos dados estão representados a seguir.
+
+```{r}
+#| echo: false
+
+data.frame(
+  Obs = 1:12,
+  y = c(2, 3, 2, 7, 6, 8, 10, 7, 8, 12, 11, 14),
+  x1 = c(0, 2, 2, 2, 4, 4, 4, 6, 6, 6, 8, 8),
+  x2 = c(2, 6, 7, 5, 9, 8, 7, 10, 11, 9, 15, 13)
+) |> 
+  kableExtra::kbl(align = "c") |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+::: panel-tabset
+### R
+
+```{r}
+y <- c(2, 3, 2, 7, 6, 8, 10, 7, 8, 12, 11, 14)
+
+x1 <- c(0, 2, 2, 2, 4, 4, 4, 6, 6, 6, 8, 8)
+
+x2 <- c(2, 6, 7, 5, 9, 8, 7, 10, 11, 9, 15, 13)
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+options nodate nocenter ps=1000;
+proc iml;
+reset fuzz;
+*pág.159;
+y = {2,3,2,7,6,8,10,7,8,12,11,14};
+x1 = {0,2,2,2,4,4,4,6,6,6,8,8};
+x2 = {2,6,7,5,9,8,7,10,11,9,15,13};
+```
+:::
+
+### Estimação dos parâmetros $\beta$
+
+Para estimar os parâmetros $\beta$, utilizamos o Método dos Mínimos Quadrados Ordinários (MQO), com base em uma amostra de $n$ observações $(y_i, x_{i1},x_{i2},\dots,x_{ik})$ para $i = 1,2, \dots , n$.
+
+Dessa forma, precisamos criar os seguintes objetos:
+
+-   `n`: número de observações $n$;
+
+-   `jn`: vetor coluna de 1's $\mathbf{j}$;
+
+-   `Jnn`: matriz de 1's $\mathbf{J}$;
+
+-   `In`: matriz identidade $\mathbf{I}$.
+
+::: panel-tabset
+### R
+
+```{r}
+n <- length(y)
+n
+
+jn <- matrix(data = 1, nrow = n, ncol = 1)
+jn
+
+Jnn <- jn %*% t(jn)
+Jnn
+
+In <- diag(n)
+In
+```
+
+Vale a ressalva de que o vetor de $\beta_0$ corresponde ao vetor coluna de 1's $\mathbf{j}$ (`jn`):
+
+```{r}
+x0 <- jn
+colnames(x0) <- ("x0")
+
+x0
+```
+
+Em seguida, criaremos três objetos, cada qual respectivo às possíveis combinações entre as variáveis preditoras. Calcularemos as equações de predição de $y$ sobre:
+
+-   $x_1$ sozinho;
+
+```{r}
+X01 <- cbind(x0, x1)
+X01
+```
+
+-   $x_2$ sozinho;
+
+```{r}
+X02 <- cbind(x0, x2)
+X02
+```
+
+-   $x_1$ e $x_2$ em conjunto.
+
+```{r}
+X012 <- cbind(x0, x1, x2)
+X012
+```
+
+Para cada caso anterior, unimos os vetores das variáveis preditoras, formando a matriz $\mathbf{X}$ (`X01`, `X02`, `X012`) do modelo matricial $\mathbf{y} = \mathbf{X} \boldsymbol{\beta} + \boldsymbol{\epsilon}$.
+
+Para obter os etimadores dos $\beta 's$ de cada um dos três modelos, utilizamos o MQO que minimiza a soma de quadrados dos desvios ($\sum^n_{i=1} (y_i - \hat{y}_i)^2$), onde
+
+$$
+\hat{y}_i = \hat{\beta}_0 + \hat{\beta}_1x_{i1} + \hat{\beta}_2x_{i2} + \dots \hat{\beta}_kx_{ik}
+$$
+
+é um estimador de $E(y_i)$.
+
+Assim, o vetor $\hat {\boldsymbol{\beta}} = [\hat \beta_0,\hat \beta_1,\dots,\hat \beta_k]'$ que minimiza a soma de quadrados dos desvios é dado por:
+
+$$
+\hat{\boldsymbol{\beta}} = (\mathbf{X'X})^{-1} \mathbf{X}' \mathbf{y}
+$$
+
+```{r}
+Beta01 <- solve(t(X01) %*% X01) %*% t(X01) %*% y
+Beta01
+```
+
+```{r}
+Beta02 <- solve(t(X02) %*% X02) %*% t(X02) %*% y
+Beta02
+```
+
+```{r}
+Beta012 <- solve(t(X012) %*% X012) %*% t(X012) %*% y
+Beta012
+```
+
+Dessa forma, obtemos as seguintes equações de predição de $y$:
+
+$$
+\begin{align}
+\hat{y} &= 1,86 + 1,30 x_1 \\
+\hat{y} &= 0,86 + 0,78 x_2\\
+\hat{y} &= 5,38 + 3,01 x_1 - 1,29 x_2
+\end{align}
+$$
+
+Como citado anteriormente, os coeficientes de $x_1$ e $x_2$ diferem de acordo com o modelo proposto.
+
+Como propriedades dos estimadores de MQO $\hat {\boldsymbol{\beta}}$:
+
+-   Se $E(\mathbf{y}) = \mathbf{X}\boldsymbol{\beta}$ então $\hat{\boldsymbol{\beta}}$ é um estimador não viesado de $\boldsymbol{\beta}$;
+
+-   Se $cov(\mathbf{y}) = \sigma^2\mathbf{I}$, então $cov(\hat {\boldsymbol{\beta}}) = \sigma^2(\mathbf{X'X})^{-1}$.
+
+### SAS
+
+```{r}
+#| eval: false
+
+n = nrow(y);
+In = I(n);
+Jnn = J(n,n,1);
+x0 = j(n,1,1); *cria um vetor nx1 de uns;
+
+x01 = x0||x1;
+x02 = x0||x2;
+x012 = x0||x1||x2;
+
+* Estima vetor Beta nos três modelos;
+Beta01 = inv(t(X01)*X01)*t(X01)*y;
+Beta02 = inv(t(X02)*X02)*t(X02)*y;
+Beta012 = inv(t(X012)*X012)*t(X012)*y;
+print '  Modelo: y = b0 + b1*x1 + e          =>     Beta = ' Beta01[format=10.4],,,
+      '  Modelo: y = b0 + b2*x2 + e          =>     Beta = ' Beta02[format=10.4],,,
+	  '  Modelo: y = b0 + b1*x1 + b2*x2 + e  =>     Beta = ' Beta012[format=10.4],,,,;
+print Beta01[format=10.4] Beta02[format=10.4] Beta012[format=10.4];
+```
+:::
+
+### Estimação da variância ($\sigma^2$)
+
+Estimaremos a variância $\sigma^2$ do modelo completo por uma média das variâncias das amostras:
+
+$$
+s^2 = \frac{\mathbf{y'y} - \hat {\boldsymbol{\beta}'}' \mathbf{X'} \mathbf{y}}{n-k-1} = \frac{\text{SQResíduo}}{n-k-1}
+$$
+
+onde $n$ é o tamanho amostral e $k$, o número de variáveis $x$.
+
+:::: panel-tabset
+### R
+
+No objeto `k`, definimos o número de variáveis $x$ do modelo completo, ou seja, duas variáveis ($x_1$ e $x_2$). Além disso, anteriormente, já definimos ao objeto `n` o número de observações (12 observações).
+
+```{r}
+k <- 2
+k
+
+n
+```
+
+Dessa forma, com a expressão apresentada anteriormente, obtemos a variância estimada $s^2$.
+
+```{r}
+s2 <- as.numeric((t(y) %*% y) - (t(Beta012) %*% t(X012) %*% y)) / (n - k - 1)
+s2
+```
+
+::: callout-note
+A variância estimada $s^2$ também poderia ser calculada da seguinte maneira, como realizado na @sec-estvar para o caso da regressão linear simples:
+
+```{r}
+#| eval: false
+
+k <- 2
+
+y_hat <- X012 %*% Beta012
+colnames(y_hat) <- ("y_hat")
+
+res <- y - y_hat
+
+SQRes <- t(res) %*% res
+
+s2 <- as.numeric(SQRes / (n - k - 1))
+```
+:::
+
+Para verificar se $s^2$ é um estimador não viesado de $cov(\hat{\boldsymbol{\beta}})$:
+
+$$\widehat{cov(\hat{\boldsymbol{\beta}})} = s^2(\mathbf{X'X})^{-1}$$
+
+```{r}
+cov_Beta <- s2 * solve(t(X012) %*% X012)
+cov_Beta
+```
+
+Dessa forma, temos:
+
+$$
+\begin{align}
+s^2 &= 2,829 \\
+\widehat{cov} &= 
+\begin{bmatrix} 
+2.757 & 0,687 & -0,647 \\
+0,687 & 0,458 & -0,315 \\
+-0,647 & -0,315 & 0,236
+\end{bmatrix}
+\end{align}
+$$
+
+### SAS
+
+```{r}
+#| eval: false
+
+*pág.168;
+* Ajusta modelo com x1 e x2 + vetor de estimativas da resposta + resíduos do modelo;
+X = x0||x1||x2;
+Beta = inv(t(X)*X)*t(X)*y;
+y_hat = X*Beta;
+Nome = {'Beta0','Beta1','Beta2'};
+print Nome Beta[format=10.4] '   ' X '   ' y[format=10.] '   ' y_hat[format=10.4],,;
+
+* Calcula estimativa de sigma2 no modelo inicial;
+res = y-y_hat;
+SQRes = t(res)*res;
+s2 = SQRes/(n-k-1);
+cov_Beta = s2*inv(t(X)*X);
+
+print s2[format=10.3] cov_Beta[format=10.5];;
+```
+::::
+
+### Modelo de Regressão na Forma Centrada
+
+O modelo de regressão múltipla pode ser escrito, para cada $y_i$, em termos das variáveis $x$ centradas em suas respectivas médias:
+
+$$
+\begin{align}
+y_i &= \beta_0 + \beta_1x_{i1} + \beta_2x_{i2} + \dots \beta_kx_{ik} + \epsilon_i \\
+&= \alpha + \beta_1(x_{i1} - \bar{x}_1) + \beta_2(x_{i2} - \bar{x}_2) + \dots + \beta_k(x_{ik} - \bar{x}_k) + \epsilon_i
+\end{align}
+$$
+
+em que $\alpha = \beta_0 + \beta_1\bar{x}_1 + \beta_2\bar{x}_2 + \dots + \beta_k\bar{x}_k$, com $\bar{x}_j = \frac{(\sum^n_{i=1} x_{ij})}n$, $j = 1,2,\dots,k$.
+
+Na forma matricial, temos:
+
+$$
+\mathbf{y} = 
+\begin{bmatrix}
+\mathbf{j} & \mathbf{X}_c
+\end{bmatrix}
+\begin{bmatrix}
+\alpha \\ \boldsymbol{\beta_1}
+\end{bmatrix}
++
+\boldsymbol{\epsilon}
+$$
+
+onde $\mathbf{j}$ é o vetor coluna de 1's, $\boldsymbol{\beta_1} = [\boldsymbol{\beta_1,\beta_2,\dots,\beta_k}]'$ e
+
+$$
+\mathbf{X}_c = \left(\mathbf{I} - \frac{1}n \mathbf{J}\right) \mathbf{X_1} = 
+\begin{bmatrix}
+x_{11} - \bar{x}_1 & x_{12} - \bar{x}_2 & \dots & x_{1k} - \bar{x}_k \\
+x_{21} - \bar{x}_1 & x_{22} - \bar{x}_2 & \dots & x_{2k} - \bar{x}_k \\
+\vdots & \vdots & \ddots & \vdots & \\
+x_{n1} - \bar{x}_1 & x_{n2} - \bar{x}_2 & \dots & x_{nk} - \bar{x}_k \\
+\end{bmatrix}
+$$
+
+em que $\mathbf{X_1} = \begin{bmatrix}\mathbf{x_1} & \mathbf{x_2} & \dots & \mathbf{x_k}\end{bmatrix}$.
+
+Os estimadores de MQO de $\alpha$ e $\boldsymbol{\beta_1}$ são dados por:
+
+$$
+\begin{bmatrix}
+\hat{\alpha} \\ \hat{\boldsymbol{\beta_1}}
+\end{bmatrix}
+=
+\begin{bmatrix}
+\bar{y} \\ (\mathbf{X'_c X_c})^{-1} \mathbf{X'_c} \mathbf{y}
+\end{bmatrix}
+$$
+
+Na forma centrada, o vetor ajustado $\hat{\mathbf{y}}$ fica:
+
+$$
+\hat{\mathbf{y}} = \hat{\alpha}\mathbf{j} + \hat{\beta_1} (\mathbf{x_1} - \bar{\mathbf{x}}_1) + \hat{\beta_2} (\mathbf{x_2} - \bar{\mathbf{x}}_2) + \dots + \hat{\beta_k} (\mathbf{x_k} - \bar{\mathbf{x}}_k)
+$$
+
+:::: panel-tabset
+### R
+
+Obtendo a matriz $\mathbf{X_1} = \begin{bmatrix}\mathbf{x_1} & \mathbf{x_2} & \dots & \mathbf{x_k}\end{bmatrix}$:
+
+```{r}
+x1x2 <- cbind(x1, x2)
+x1x2
+```
+
+Em seguida, obtendo os valores dos $x$ centrados a partir da expressão $\mathbf{X_c} = \left(\mathbf{I} - \frac{1}n \mathbf{J}\right) \mathbf{X_1}$:
+
+```{r}
+x1x2c <- (In - (1 / n) * Jnn) %*% x1x2
+x1x2c
+
+Xc <- cbind(x0, x1x2c)
+Xc
+```
+
+Com a matriz $\mathbf{X_c}$, obtemos as estimativas dos coeficientes de regressão $\beta$ com os $x$ centrados a partir da seguinte expressão:
+
+$$
+\hat{\boldsymbol{\beta_1}} = (\mathbf{X'_c X_c})^{-1} \mathbf{X'_c} \mathbf{y}
+$$
+
+```{r}
+Betac <- solve(t(Xc) %*% Xc) %*% t(Xc) %*% y
+Betac
+```
+
+Para calcular a estimativa de $\sigma^2$ no modelo centrado, utilizamos a mesma expressão do modelo original:
+
+$$
+s^2 = \frac{\mathbf{y'y} - \hat {\boldsymbol{\beta_1}}' \mathbf{X_c'} \mathbf{y}}{n-k-1} = \frac{\text{SQResíduo}}{n-k-1}
+$$
+
+```{r}
+s2c <- as.numeric((t(y) %*% y) - (t(Betac) %*% t(Xc) %*% y)) / (n - k - 1)
+s2c
+```
+
+::: callout-note
+Mais uma vez, a variância estimada $s^2$ também poderia ser calculada da seguinte maneira, como realizado na @sec-estvar para o caso da regressão linear simples:
+
+```{r}
+#| eval: false
+
+y_hatc <- Xc %*% Betac
+colnames(y_hatc) <- ("y_hatc")
+
+res_c <- y - y_hatc
+
+SQRes_c <- t(res_c) %*% res_c
+
+s2c <- as.numeric(SQRes / (n - k - 1))
+```
+:::
+
+Novamente, para verificar se $s^2$ é um estimador não viesado de $cov(\hat{\boldsymbol{\beta}})$:
+
+$$\widehat{cov(\hat{\boldsymbol{\beta}})} = s^2(\mathbf{X'X})^{-1}$$
+
+```{r}
+cov_Betac <- s2c * solve(t(X012) %*% X012)
+cov_Betac
+```
+
+Dessa forma, temos o mesmo resultado do modelo original:
+
+$$
+\begin{align}
+s^2 &= 2,829 \\
+\widehat{cov} &= 
+\begin{bmatrix} 
+2.757 & 0,687 & -0,647 \\
+0,687 & 0,458 & -0,315 \\
+-0,647 & -0,315 & 0,236
+\end{bmatrix}
+\end{align}
+$$
+
+### SAS
+
+```{r}
+#| eval: false
+
+x1x2 = x1||x2;
+x1x2c = (In - (1/n)*Jnn)*x1x2;
+Xc = x0||x1x2c; 
+BetaC = inv(t(Xc)*Xc)*t(Xc)*y;
+y_hatc = Xc*Betac;
+XcLXc = t(Xc)*Xc;
+
+*pág. 175;
+k = 2;
+res = y - y_hat;
+SQRes = t(res)*res;
+s2c = (1/(n-k-1))*SQRes;
+cov_Betac = s2*inv(t(X)*X);
+Nome = {'Beta0c','Beta1c','Beta2c'};
+print 'Estimativas dos parâmetros com colunas x1 e x2 centradas nas médias';
+print Nome Betac[format=10.4] '   ' Xc[format=10.4] '   ' y '   ' y_hatC[format=10.4],;
+print s2c[format=10.5] cov_Betac[format=10.5];
+```
+::::
+
+### Coeficiente de Determinação na Regressão com x-fixos
+
+Para calcular o coeficiente de determinação $R^2$ com x-fixos:
+
+$$
+R^2 = \frac{\mathbf{y'}\left[\mathbf{X(X'X)}^{-1}\mathbf{X'} - \frac{1}n \mathbf{J}\right]\mathbf{y}}{\mathbf{y'}[\mathbf{I} - \frac{1}n \mathbf{J}]\mathbf{y}}
+=
+\frac{\text{SQReg}}{\text{SQTot}}
+$$
+
+em que $SQReg$ é a soma de quadrados da regressão com $k$ graus de liberdade, associada somente ao efeito das variáveis regressoras $x$; e $SQTot$, a soma de quadrados total corrigida com $n - 1$ graus de liberdade.
+
+::: panel-tabset
+### R
+
+```{r}
+SQReg <- t(y) %*% (Xc %*% solve(t(Xc) %*% Xc) %*% t(Xc) - (1/n) * Jnn) %*% y
+SQReg
+
+SQTot <- t(y) %*% (In - (1/n) * Jnn) %*% y
+SQTot
+
+R2 <- SQReg / SQTot
+R2
+```
+
+A partir do coeficiente de determinação $R^2$, podemos calcular o coeficiente de determinação ajustado ($R^2 \text{ ajustado}$). Esta medida penaliza a inclusão de regressores ao modelo, visto que a inserção de inúmeras variáveis, mesmo que tenham pouco poder preditivo, aumentam o valor do $R^2$. O modelo proposto é dado por:
+
+$$
+R^2_{aj} = \frac{(n - 1) R^2-k}{n - k - 1}
+$$
+
+em que $n$ é o número de observações e $k$, o número de variáveis $x$.
+
+```{r}
+R2aj <- ((n - 1) * R2 - k) / (n - k - 1)
+R2aj
+```
+
+Comparativamente, percebe-se que o $R^2_{aj}$ é mais rigoroso em relação ao $R^2$.
+
+$$
+\begin{align}
+R^2 &= 0,8457 \\
+R^2_{aj} &= 0,8114
+\end{align}
+$$
+
+Todavia, para esta situação, ambos indicam uma boa qualidade no ajuste do modelo.
+
+### SAS
+
+```{r}
+#| eval: false
+
+*pág.195;
+* Calcula coeficiente de determinação;
+SQreg = t(y)*(X*inv(t(X)*X)*t(X)-(1/n)*Jnn)*y;
+SQTot = t(y)*(In-(1/n)*Jnn)*y;
+R2 = SQReg/SQTot;
+R2aj = ((n-1)*R2-k)/(n-k-1);
+print R2[format=10.4] R2aj[format=10.4];
+```
+:::
+
+### Resumo dos resultados
+
+Nota-se que o modelo original e o na forma centrada obtiveram diferentes coeficientes estimados.
+
+```{r}
+#| echo: false
+
+data.frame(
+  beta = Beta012,
+  betac = Betac
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    col.names = c("Beta", "Beta Centrado")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Apesar disso, os estimadores de $\sigma^2$ de ambos os modelos são os mesmos, bem como $cov(\hat\beta)$ e os valores estimados $\mathbf{\hat y}$.
+
+```{r}
+#| echo: false
+
+data.frame(
+  s2 = s2,
+  s2c = s2c
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    col.names = c("s2", "s2 centrado")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+```{r}
+#| echo: false
+
+cat("Cov_Beta:\n")
+print(cov_Beta, digits = 4)
+
+cat("Cov_Beta Centrado:\n")
+print(cov_Betac, digits = 4)
+```
+
+```{r}
+#| echo: false
+
+data.frame(
+  y_hat = X012 %*% Beta012 |> round(3),
+  y_hatc = Xc %*% Betac |> round(3)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    col.names = c("y_hat", "y_hat centrado")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+## Teste de Hipótese - Exemplo 1
+
+Desenvolveremos testes de hipóteses para os parâmetros do vetor $\boldsymbol{\beta} = [\beta_1, \beta_2,\dots, \beta_k]'$ no modelo de regressão múltipla
+
+$$\mathbf{y} = \mathbf{X} \boldsymbol{\beta} + \boldsymbol{\epsilon}$$
+
+Faremos as mesmas suposições do @sec-rlmest, em que $\boldsymbol{\epsilon} \sim N_n(\mathbf{0}, \sigma^2\mathbf{I})$ ou $\mathbf{y} \sim N_n(\mathbf{X}\boldsymbol{\beta},\sigma^2\mathbf{I})$, onde $\mathbf{X}$ é uma matriz $n \times(k+1)$, de posto $k+1 < n$, sendo $n$ o número de observações e $k$, o número de variáveis $x$.
+
+Isso garante que as somas de quadrados da regressão e dos resíduos são formas quadráticas independentes, sendo pressuposições importantes para a realização da análise de variância.
+
+Do @sec-rlmest, sabemos que:
+
+-   Modelo de regressão múltipla na forma centrada:
+
+$$
+\mathbf{y} = 
+\begin{bmatrix}
+\mathbf{j} & \mathbf{X}_c
+\end{bmatrix}
+\begin{bmatrix}
+\alpha \\ \boldsymbol{\beta_1}
+\end{bmatrix}
++
+\boldsymbol{\epsilon}
+=
+\alpha \mathbf{j} + \mathbf{X}_c \boldsymbol{\beta_1} + \boldsymbol{\epsilon}
+$$
+
+em que
+
+$$\mathbf{X}_c = \left(\mathbf{I} - \frac{1}n \mathbf{J}\right) \mathbf{X_1}$$
+
+e $\mathbf{X_1} = \begin{bmatrix}\mathbf{x_1} & \mathbf{x_2} & \dots & \mathbf{x_k}\end{bmatrix}$.
+
+-   Estimadores de MQO de $\alpha$ e $\boldsymbol{\beta_1}$:
+
+$$
+\begin{bmatrix}
+\hat{\alpha} \\ \hat{\boldsymbol{\beta_1}}
+\end{bmatrix}
+=
+\begin{bmatrix}
+\bar{y} \\ (\mathbf{X'_c X_c})^{-1} \mathbf{X'_c} \mathbf{y}
+\end{bmatrix}
+$$
+
+-   Soma de quadrados da regressão (`SQReg`):
+
+$$
+SQReg = \mathbf{y'}\left[\mathbf{X(X'X)}^{-1}\mathbf{X'} - \frac{1}n \mathbf{J}\right]\mathbf{y} \space, \quad \text{ com k graus de liberdade}
+$$
+
+-   Soma de quadrados total corrigida (`SQTot`):
+
+$$
+SQTot = \mathbf{y'}[\mathbf{I} - \frac{1}n \mathbf{J}]\mathbf{y} \space, \quad \text{ com n-1 graus de liberdade}
+$$
+
+-   Soma de quadrados de resíduo (`SQRes`):
+
+$$
+SQRes = \mathbf{y'} (\mathbf{I - X(X'X)^{-1}X')y} \space, \quad \text{ com (n-k-1) graus de liberdade}
+$$
+
+Para o exemplo, utilizaremos os mesmos dados do @sec-rlmest.
+
+```{r}
+#| echo: false
+
+data.frame(
+  Obs = 1:12,
+  y = c(2, 3, 2, 7, 6, 8, 10, 7, 8, 12, 11, 14),
+  x1 = c(0, 2, 2, 2, 4, 4, 4, 6, 6, 6, 8, 8),
+  x2 = c(2, 6, 7, 5, 9, 8, 7, 10, 11, 9, 15, 13)
+) |> 
+  kableExtra::kbl(align = "c") |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+::: panel-tabset
+### R
+
+```{r}
+y <- c(2, 3, 2, 7, 6, 8, 10, 7, 8, 12, 11, 14)
+
+x0 <- matrix(data = 1, nrow = length(y), ncol = 1)
+colnames(x0) <- ("x0")
+
+x1 <- c(0, 2, 2, 2, 4, 4, 4, 6, 6, 6, 8, 8)
+
+x2 <- c(2, 6, 7, 5, 9, 8, 7, 10, 11, 9, 15, 13)
+
+X <- cbind(x0, x1, x2)
+X
+```
+
+```{r}
+k <- 2    # número de variáveis regressoras x
+
+n <- length(y)
+
+jn <- matrix(data = 1, nrow = n, ncol = 1)
+
+Jnn <- jn %*% t(jn)
+
+In <- diag(n)
+
+X12 <- cbind(x1, x2)
+X12
+
+Xc <- (In - (1 / n) * Jnn) %*% X12    # Matriz X12 centrada
+Xc
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+proc iml;
+
+* Exemplo 8.1 - usando dados do Exemplo 7.2  (Tabela 7.1);
+* (Freund & Minton, 1979, pág.36-39);
+y = {2,3,2,7,6,8,10,7,8,12,11,14};
+X = {1 0 2,1 2 6,1 2 7,1 2 5,1 4 9,1 4 8,1 4 7,1 6 10,1 6 11,1 6 9,1 8 15,1 8 13};
+print y '   '  X;
+```
+
+```{r}
+#| eval: false
+
+n = nrow(y);
+k = 2; 	* número de variáveis regressoras x's;
+X1 = X[,2:3];
+In = I(n);
+Jnn = J(n,n,1);
+Xc = (In - (1/n)*Jnn)*X1;	* Matriz X1 centrada;
+```
+:::
+
+### Teste de Regressão Global (Geral)
+
+Como hipóteses do teste de regressão global, assumiremos:
+
+$$
+\begin{align}
+H_0&: \boldsymbol{\beta_1} = 0 \\
+H_a&: \text{Pelo menos um dos } \beta's \text{ não é nulo}
+\end{align}
+$$
+
+onde $\boldsymbol{\beta_1} = [\beta_1, \dots, \beta_k]'$.
+
+Em outras palavras:
+
+$$
+\begin{align}
+H_0&: \text{Nenhum dos x's prediz y} \\
+H_a&: \text{Pelo menos uma das variáveis x's é importante na predição de y}
+\end{align}
+$$
+
+O quadro da ANOVA para o teste F de $H_0: \boldsymbol{\beta_1} = 0$ é:
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "FV" = c("Devida a Beta1", "Resíduo", "Total"),
+  "gl" = c("k", "n - k - 1", "n - 1"),
+  "QM" = c("SQReg / k", "SQRes / (n - k - 1)", "SQTot / (n - 1)"),
+  "F" = c("QMReg / QMRes", NA, NA)
+) |> 
+  kableExtra::kbl(align = "c") |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+onde $n$ são os números de observações e $k$, o número de variáveis $x$.
+
+::: panel-tabset
+### R
+
+A soma de quadrados e os graus de liberdade totais são obtidos da seguinte maneira:
+
+```{r}
+SQTot <- t(y) %*% (In - (1 / n) * Jnn) %*% y
+SQTot
+
+gl_tot <- n - 1
+gl_tot
+```
+
+Já a soma de quadrados, quadrado médio e os graus de liberdade da regressão:
+
+```{r}
+Beta1 <- solve(t(Xc) %*% Xc) %*% t(Xc) %*% y
+Beta1
+
+SQReg <- t(Beta1) %*% t(Xc) %*% y
+SQReg
+
+gl_reg <- k
+gl_reg
+
+QMReg <- SQReg / gl_reg
+QMReg
+```
+
+Para os resíduos, temos as seguintes soma de quadrados, quadrado médio e graus de liberdade:
+
+```{r}
+SQRes <- SQTot - SQReg
+SQRes
+
+gl_res <- n - k - 1
+gl_res
+
+QMRes <- SQRes / gl_res
+QMRes
+```
+
+A estatística F e o p-valor:
+
+```{r}
+Fcalc1 <- QMReg / QMRes
+Fcalc1
+
+p_valor1 <- 1 - pf(Fcalc1, k, n - k - 1)
+p_valor1
+```
+
+Dessa forma, o quadro da ANOVA para o teste $H_0: \boldsymbol{\beta_1} = 0$ fica:
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+ftab1 <- qf(0.95, k, n - k - 1)
+
+data.frame(
+  "FV" = c("Regressão", "Resíduo", "Total"),
+  "gl" = c(gl_reg, gl_res, gl_tot),
+  "SQ" = c(SQReg, SQRes, SQTot) |> round(3),
+  "QM" = c(QMReg, QMRes, NA) |> round(3),
+  "Fcal" = c(Fcalc1, NA, NA) |> round(3),
+  "Ftab" = c(ftab1, NA, NA) |> round(2),
+  "p.valor" = c(p_valor1, NA, NA) |> round(6)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "Teste de Regressão Global - H0: Beta1 = 0",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que o $F_{cal} > F_{tab}$, para $F(0.05, 2, 9)$, há evidência para rejeitarmos $H_0: \boldsymbol{\beta_1} = 0$ ao nível de 5% de significância, ou seja, pelo menos uma das variáveis regressoras, $x_1$ ou $x_2$, é importante para predizer $y$. Da mesma maneira, o p-valor corrobora com o resultado, pois é menor que 0,05.
+
+### SAS
+
+```{r}
+#| eval: false
+
+* Cálculo das SQ´s para testar hipótese H0: Beta1 = 0;
+SQTotal = t(y)*(In - (1/n)*Jnn)*y;	* Calcula SQTotal;
+gl_total = n-1;
+
+Beta1 = inv(t(Xc)*Xc)*t(Xc)*y;		* Calcula Beta1;
+SQReg = t(Beta1)*t(Xc)*y;
+gl_reg = k;
+QMReg = SQReg/gl_reg;
+
+SQRes = SQTotal - SQReg;
+gl_res = n-k-1;
+QMRes = SQRes/gl_res;
+
+Fcalc1 = QMReg/QMRes;
+p_valor1 = 1-cdf('F',Fcalc1,k,n-k-1);
+
+print 'Seção 8.1: TESTE DE REGRESSÃO GLOBAL - H0: Beta1 = 0',;
+print 'Regressão' gl_reg   SQReg[format=10.4] QMReg[format=10.4] Fcalc1[format=10.3] p_valor1[format=10.6],,
+      'Resíduo  ' gl_res   SQRes[format=10.4] QMRes[format=10.4],,
+      'Total    ' gl_total SQTotal[format=10.4],,,,;
+```
+:::
+
+#### Teste para um subconjunto de $\beta's$
+
+Neste caso, estamos interessados em testar a hipótese de que um subconjunto das variáveis regressoras $x's$ não é importante para predizer $y$.
+
+Como hipóteses do teste de regressão, assumiremos:
+
+$$
+\begin{align}
+H_0&: \boldsymbol{\beta_2} = 0 \\
+H_a&: \boldsymbol{\beta_2} \ne 0
+\end{align}
+$$
+
+O **modelo completo**, que inclui todas as variáveis, pode ser escrito como:
+
+$$
+\mathbf{y} = \mathbf{X} \boldsymbol{\beta} + \boldsymbol{\epsilon}
+=
+\begin{bmatrix}
+\mathbf{X_1} & \mathbf{X_2}
+\end{bmatrix}
+\begin{bmatrix}
+\boldsymbol{\beta_1} \\ \boldsymbol{\beta_2}
+\end{bmatrix}
++
+\boldsymbol{\epsilon}
+=
+\mathbf{X_1} \boldsymbol{\beta_1} + \mathbf{X}_2 \boldsymbol{\beta_2} + \boldsymbol{\epsilon}
+$$
+
+onde $\boldsymbol{\beta_2}$ apresenta os parâmetros a serem testados em $H_0: \boldsymbol{\beta_2} = 0$.
+
+Já o **modelo reduzido** pela hipótese $H_0: \boldsymbol{\beta_2} = 0$ será:
+
+$$
+\mathbf{y} = \mathbf{X_1} \boldsymbol{\beta_1}^* + \boldsymbol{\epsilon}^*
+$$
+
+Seja $h$ o número de parâmetros em $\boldsymbol{\beta_2}$, temos:
+
+-   $\mathbf{X_2}$ uma matriz $n \times h$ e $\boldsymbol{\beta_2}$ $h \times 1$;
+
+-   $\mathbf{X_1}$ uma matriz $n \times (k+1-h)$ e $\boldsymbol{\beta_1}$ $(k+1-h) \times 1$.
+
+::: panel-tabset
+### R
+
+No caso do nosso exemplo, sob a hipótese $H_0: \boldsymbol{\beta_2} = 0$, os vetores de parâmetros ficam:
+
+$$
+\boldsymbol{\beta_1} = 
+\begin{bmatrix}
+\beta_0 \\ \beta_1
+\end{bmatrix}
+\text{ e }
+\boldsymbol{\beta_2} = \beta_2
+$$
+
+```{r}
+X01 <- cbind(x0, x1)  # Variáveis importantes em X1Beta1
+X01
+
+X2 <- as.matrix(x2)   # Variáveis desprezíveis em X2Beta2
+X2
+```
+
+Para desenvolver uma estatística para testar $H_0: \boldsymbol{\beta_2} = 0$, precisamos escrever as somas de quadrados em termos de formas quadráticas de $\mathbf{y}$, dado por:
+
+$$
+SQ(\boldsymbol{\beta_2} \mid \beta_1) = \mathbf{y'} [\mathbf{A_1-A_2}] \mathbf{y}
+$$
+
+onde $A_1 = \mathbf{X(X'X)^{-1}X'}$ e $A_2 = \mathbf{X_1(X'_1X_1)^{-1}X'_1}$.
+
+```{r}
+A1 <- X %*% solve(t(X) %*% X) %*% t(X) 
+A1
+
+A2 <- X01 %*% solve(t(X01) %*% X01) %*% t(X01)
+A2
+
+SQB2_B1 <- t(y) %*% (A1 - A2) %*% y
+SQB2_B1
+```
+
+Tendo a soma de quadrados $SQ(\boldsymbol{\beta_2} \mid \beta_1)$, podemos calcular o seu quadrado médio ($QM(\boldsymbol{\beta_2} \mid \beta_1)$), bem como a estatística F e o p-valor.
+
+```{r}
+h <- ncol(X2)         # Número de parâmetros x em Beta2 (g.l de Beta2|Beta1)
+h
+
+QMB2_B1 <- SQB2_B1 / h
+QMB2_B1
+
+Fcalc2 <- QMB2_B1 / QMRes
+Fcalc2
+
+p_valor2 <- 1 - pf(Fcalc2, h, n - k - 1)
+p_valor2
+```
+
+Dessa forma, o quadro da ANOVA para o teste $H_0: \boldsymbol{\beta_2} = 0$ fica:
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+ftab2 <- qf(0.95, h, n - k - 1)
+
+data.frame(
+  "FV" = c("Devida a Beta2 ajust. Beta1", "Resíduo", "Total"),
+  "gl" = c(h, gl_res, gl_tot),
+  "SQ" = c(SQB2_B1, SQRes, SQTot) |> round(3),
+  "QM" = c(QMB2_B1, QMRes, NA) |> round(3),
+  "Fcal" = c(Fcalc2, NA, NA) |> round(3),
+  "Ftab" = c(ftab2, NA, NA) |> round(2),
+  "p.valor" = c(p_valor2, NA, NA) |> round(6)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "Teste de Regressão de Subconjunto - H0: Beta2 = 0",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que o $F_{cal} > F_{tab}$, para $F(0.05, 1, 9)$, há evidência para rejeitarmos $H_0: \boldsymbol{\beta_2} = 0$ ao nível de 5% de significância, ou seja, os termos de segunda ordem (em $\boldsymbol{\beta_2}$) não são todos nulos e são importantes para a predição de $\mathbf{y}$.
+
+### SAS
+
+```{r}
+#| eval: false
+
+* SQ´s para testar hipótese H0: Beta2 = 0;
+X1 = X[,1:2]; 	* Variáveis importantes em X1Beta1;
+X2 = X[,3];   	* Variáveis desprezíveis em X2Beta2; 
+A1 = X*inv(t(X)*X)*t(X);
+A2 = X1*inv(t(X1)*X1)*t(X1);
+h = ncol(X2);
+SQB2_B1 = t(y)*(A1-A2)*y;
+QMB2_B1 = SQB2_B1/h;
+
+Fcalc2 = QMB2_B1/QMRes;
+p_valor2 = 1-cdf('F',Fcalc2,h,n-k-1);
+
+print 'Seção 8.2: TESTE PARA SUBCONJUNTO DOS BETA´S - H0: Beta2 = 0',
+      '                (MODELO COMPLETO versus MODELO REDUZIDO)',;
+print 'Beta2 | Beta1' h SQB2_B1[format=10.4] QMB2_B1[format=10.4] Fcalc2[format=10.4] p_valor2[format=10.4],
+      'Resíduo      ' gl_res SQRes[format=10.4] QMRes[format=10.4],,,,;
+```
+:::
+
+### Hipótese Linear Geral {#sec-hlg}
+
+Na hipótese linear geral, assumimos a hipótese $H_0: \mathbf{C} \boldsymbol{\beta} = 0$, onde $\mathbf{C}$ é uma matriz de coeficientes $q \times (k+1)$ e de posto $q \le k+1$.
+
+$$
+\begin{align}
+H_0 &: \mathbf{C} \boldsymbol{\beta} = 0 \\
+H_a &: \mathbf{C} \boldsymbol{\beta} \ne 0 
+\end{align}
+$$
+
+Dessa maneira, podemos expressar qualquer tipo de hipótese, de acordo com os coeficientes presentes na matriz $\mathbf{C}$.
+
+Para o exemplo até então utilizado, podemos formular a hipótese $H_0: \boldsymbol{\beta_1} = \boldsymbol{\beta_2} = 0$ usando a hipótese linear geral.
+
+$$
+\begin{align}
+H_0 &: \boldsymbol{\beta_1} = \boldsymbol{\beta_2} = 0 \\
+H_0 &: \mathbf{C} \boldsymbol{\beta} = 
+\begin{bmatrix}
+0 & 1 & 0 \\
+0 & 0 & 1
+\end{bmatrix}
+\begin{bmatrix}
+\beta_0 \\ \beta_1 \\ \beta_2
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix} \\
+H_0 &:
+\begin{bmatrix}
+\beta_1 \\ \beta_2
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix}
+\end{align}
+$$
+
+::: panel-tabset
+### R
+
+```{r}
+C <- matrix(data = c(0, 1, 0, 0, 0, 1), ncol = 3, byrow = TRUE)
+C
+
+Beta <- solve(t(X) %*% X) %*% t(X) %*% y
+Beta
+
+CBeta <- C %*% Beta
+CBeta
+```
+
+A soma de quadrados da hipótese ($SQHip$) é dado por:
+
+$$
+SQHip = (\mathbf{C} \hat{\boldsymbol{\beta}})'[\mathbf{C (X'X)^{-1} C'}]^{-1} (\mathbf{C} \hat{\boldsymbol{\beta}})
+$$
+
+com $q = \text{ posto}(\mathbf{C}) = \text{número linhas de }\mathbf{C}$ graus de liberdade.
+
+```{r}
+SQHip <- t(CBeta) %*% solve(C %*% solve(t(X) %*% X) %*% t(C)) %*% CBeta
+SQHip
+
+gl_hip <- nrow(C)
+gl_hip
+
+QMHip <- SQHip / gl_hip
+QMHip
+
+Fcalc3 <- QMHip / QMRes
+Fcalc3
+
+p_valor3 <- 1 - pf(Fcalc3, gl_hip, n - k - 1)
+p_valor3
+```
+
+Dessa forma, o quadro da ANOVA para o teste $H_0: \boldsymbol{\beta_1} = \boldsymbol{\beta_2} = 0$ utilizando a hipótese linear geral, fica:
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+ftab3 <- qf(0.95, gl_hip, n - k - 1)
+
+data.frame(
+  "FV" = c("H0:B1=B2=0", "Resíduo", "Total"),
+  "gl" = c(gl_hip, gl_res, gl_tot),
+  "SQ" = c(SQHip, SQRes, SQTot) |> round(3),
+  "QM" = c(QMHip, QMRes, NA) |> round(3),
+  "Fcal" = c(Fcalc3, NA, NA) |> round(3),
+  "Ftab" = c(ftab3, NA, NA) |> round(2),
+  "p.valor" = c(p_valor3, NA, NA) |> round(6)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "Teste de Regressão para hipótese linear geral - H0: Beta1 = Beta2 = 0",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que o $F_{cal} > F_{tab}$, para $F(0.05, 2, 9)$, há evidência para rejeitarmos $H_0: \boldsymbol{\beta_1} = \boldsymbol{\beta_2} = 0$ ao nível de 5% de significância.
+
+### SAS
+
+```{r}
+#| eval: false
+
+*Hipótese Linear Geral H0: C*Beta = 0 ou H0: beta1=beta2=0;
+C = {0 1 0, 0 0 1};
+gl_hip = nrow(C);
+Beta = inv(t(X)*X)*t(X)*y;
+SQHip = t(C*Beta)*inv(C*inv(t(X)*X)*t(C))*C*Beta;
+QMHip = SQHip/gl_hip;
+Fcalc3 = QMHip/QMRes;
+p_valor3 = 1-cdf('F',Fcalc3,gl_hip,n-k-1);
+
+print 'Seção 8.3: H0: B1 = B2 = 0 usando HIPÓTESE LINEAR GERAL',;
+print 'H0: B1 = B2 = 0   ' gl_hip SQHip[format=10.4] QMHip[format=10.4] Fcalc3[format=10.3] p_valor3[format=10.6],,
+      'Resíduo           ' gl_res SQRes[format=10.4] QMRes[format=10.4],,,,;
+```
+:::
+
+## Teste de Hipótese - Exemplo 2 {#sec-th2}
+
+```{r}
+#| echo: false
+
+options(scipen = 999999, knitr.kable.NA = '')
+```
+
+Nesta seção, traremos outro exemplo de teste de hipótese em regressão linear múltipla.
+
+Considere uma reação química para formar um determinado material desejado. Seja a variável dependente $y_2$ o percentual convertido no material desejado e $y_1$ e $y_1$ o percentual de material não convertido.
+
+Como variáveis preditoras temos:
+
+-   $x_1$ = Temperatura (°C);
+
+-   $x_2$ = Concentração do reagente (%);
+
+-   $x_3$ = Tempo de reação (horas).
+
+O **modelo completo** de regressão múltipla de $y_2$ é dado por:
+
+$$
+\begin{align}
+y_2 = &\beta_0 + \beta_1x_1 + \beta_2x_2 + \beta_3x_3 + \beta_4x_1^2 + \beta_5x_2^2 + \beta_6x_3^2 + \beta_7x_1x_2 +\\
+&+ \beta_8x_1x_3 + \beta_9x_2x_3 + \epsilon
+\end{align}
+$$
+
+Os dados estão descritos a seguir:
+
+```{r}
+#| echo: false
+
+data.frame(
+  y1 = c(41.5,33.8,27.7,21.7,19.9,15.0,12.2,4.3,19.3,6.4,37.6,18.0,26.3,9.9,25.0,14.1,15.2,15.9,19.6),
+  y2 = c(45.9,53.3,57.5,58.8,60.6,58.0,58.6,52.4,56.9,55.4,46.9,57.3,55.0,58.9,50.3,61.1,62.9,60.0,60.6),
+  x1 = c(162,162,162,162,172,172,172,172,167,177,157,167,167,167,167,177,177,160,160),
+  x2 = c(23,23,30,30,25,25,30,30,27.5,27.5,27.5,32.5,22.5,27.5,27.5,20,20,34,34),
+  x3 = c(3,8,5,8,5,8,5,8,6.5,6.5,6.5,6.5,6.5,9.5,3.5,6.5,6.5,7.5,7.5)
+) |> 
+  kableExtra::kbl(align = "c") |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+::: panel-tabset
+### R
+
+```{r}
+y1 <- c(41.5,33.8,27.7,21.7,19.9,15.0,12.2,4.3,19.3,6.4,37.6,18.0,26.3,9.9,25.0,14.1,15.2,15.9,19.6)
+
+y2 <- c(45.9,53.3,57.5,58.8,60.6,58.0,58.6,52.4,56.9,55.4,46.9,57.3,55.0,58.9,50.3,61.1,62.9,60.0,60.6)
+
+n <- length(y2)
+x0 <- rep(1, n)
+
+x1 <- c(162,162,162,162,172,172,172,172,167,177,157,167,167,167,167,177,177,160,160)
+
+x2 <- c(23,23,30,30,25,25,30,30,27.5,27.5,27.5,32.5,22.5,27.5,27.5,20,20,34,34)
+
+x3 <- c(3,8,5,8,5,8,5,8,6.5,6.5,6.5,6.5,6.5,9.5,3.5,6.5,6.5,7.5,7.5)
+
+x11 <- x1*x1
+  
+x22 <- x2*x2
+
+x33 <- x3*x3
+
+x12 <- x1*x2
+
+x13 <- x1*x3
+
+x23 <- x2*x3
+```
+
+```{r}
+X <- cbind(x0, x1, x2, x3, x11, x22, x33, x12, x13, x23)
+X
+```
+
+```{r}
+Jnn <- matrix(data = 1, nrow = n, ncol = n)
+
+In <- diag(n)
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+options nodate nocenter ps=1000 ls=120;
+
+proc iml;
+reset noprint;
+*pág.245;
+y1 = {41.5,33.8,27.7,21.7,19.9,15.0,12.2,4.3,19.3,6.4,37.6,18.0,26.3,9.9,25.0,14.1,15.2,15.9,19.6};
+* y1 = % de material que não reagiu;
+y2 = {45.9,53.3,57.5,58.8,60.6,58.0,58.6,52.4,56.9,55.4,46.9,57.3,55.0,58.9,50.3,61.1,62.9,60.0,60.6};
+* y2 = % convertida ao material desejado;
+n = nrow(y1);
+print n;
+In = I(n);
+Jnn = J(n,n,1);
+* c1 = temperatura; * c2 = concentração de reagente; * c3 = tempo de reação;
+c0 = j(n,1,1);
+c1 = {162,162,162,162,172,172,172,172,167,177,157,167,167,167,167,177,177,160,160};  
+c2 = {23,23,30,30,25,25,30,30,27.5,27.5,27.5,32.5,22.5,27.5,27.5,20,20,34,34};	    
+c3 = {3,8,5,8,5,8,5,8,6.5,6.5,6.5,6.5,6.5,9.5,3.5,6.5,6.5,7.5,7.5};					
+c11 = c1#c1; * eleva C1 ao quadrado;
+c22 = c2#c2; 
+c33 = c3#c3; 
+c12 = c1#c2; 
+c13 = c1#c3;
+c23 = c2#c3;
+X = c0||c1||c2||c3||c11||c22||c33||c12||c13||c23;
+```
+:::
+
+### Modelo Completo
+
+Para estimar os parâmetros $\beta$ do **modelo completo**, utilizamos o Método dos Mínimos Quadrados Ordinários (MQO):
+
+$$
+\hat{\boldsymbol{\beta}} = (\mathbf{X'X})^{-1} \mathbf{X}' \mathbf{y}
+$$
+
+Além disso, calcularemos as somas de quadrados e o quadrado médio do modelo completo.
+
+$$
+\begin{align}
+&SQReg = \mathbf{y'}\left[\mathbf{X(X'X)}^{-1}\mathbf{X'} - \frac{1}n \mathbf{J}\right]\mathbf{y}, \\
+&\text{ com k graus de liberdade}
+\end{align}
+$$
+
+$$
+SQTot = \mathbf{y'}[\mathbf{I} - \frac{1}n \mathbf{J}]\mathbf{y} \space, \quad \text{ com n-1 graus de liberdade}
+$$
+
+$$
+SQRes = SQTot - SQReg = \mathbf{y'} (\mathbf{I - X(X'X)^{-1}X')y} \space, \quad \text{ com (n-k-1) graus de liberdade}
+$$
+
+::: panel-tabset
+### R
+
+```{r}
+Beta <- solve(t(X) %*% X) %*% t(X) %*% y2
+Beta |> round(4)
+```
+
+```{r}
+SQTotal <- t(y2) %*% (In - (1 / n) * Jnn) %*% y2
+SQTotal
+
+gltotal <- n - 1
+gltotal
+```
+
+```{r}
+SQReg <- t(y2) %*% (X %*% solve(t(X) %*% X) %*% t(X) - (1 / n) * Jnn) %*% y2
+SQReg
+
+k <- ncol(X) - 1
+gl_reg <- k
+gl_reg
+```
+
+```{r}
+SQRes <- SQTotal - SQReg
+SQRes
+
+gl_res <- n - k - 1
+gl_res
+
+QMRes <- SQRes / gl_res
+QMRes
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+Beta = inv(t(X)*X)*t(X)*y2;
+print Beta[format=12.4];
+```
+
+```{r}
+#| eval: false
+
+* Modelo completo;
+SQTotal = t(y2)*(In-(1/n)*Jnn)*y2;
+gltotal = n-1;
+SQReg = t(y2)*(X*inv(t(X)*X)*t(X)-(1/n)*Jnn)*y2;
+k = ncol(X)-1;
+gl_reg = k;
+SQRes = SQTotal-SQReg;
+glres = n-k-1;
+QMRes = SQRes/glres;
+
+print 'Modelo completo:',,, gl_reg SQReg[format=10.4] SQRes[format=10.4] SQTotal[format=10.4],,,;
+```
+:::
+
+### Hipótese 1
+
+Como primeira hipótese ao nosso modelo, assumiremos $H_0: \beta_4 = \beta_5 = \beta_6 = \beta_7 = \beta_8 = \beta_9 = 0$, ou seja, vamos testar se os termos de segunda ordem do modelo não são importantes na predição de $y_2$.
+
+$$
+\begin{align}
+H_0&: \beta_4 = \beta_5 = \beta_6 = \beta_7 = \beta_8 = \beta_9 = 0 \\
+H_a&: \text{Pelo menos um dos } \beta's \text{ não é nulo}
+\end{align}
+$$
+
+Com essa hipótese, temos como **modelo reduzido**:
+
+$$y_2 = \beta_0^* + \beta_1^*x_1 + \beta_2^*x_2 + \beta_3^*x_3 + \epsilon^*$$
+
+::: panel-tabset
+### R
+
+```{r}
+X1 <- cbind(x0, x1, x2, x3)
+X1
+```
+
+A seguir, calcularemos os graus de liberdade, somas de quadrados, quadrados médios, estatística F e p-valor do modelo reduzido.
+
+```{r}
+SQReg1 <- t(y2) %*% (X1 %*% solve(t(X1) %*% X1) %*% t(X1) - (1 / n) * Jnn) %*% y2
+SQReg1
+
+gl_regB1 <- ncol(X1) - 1
+gl_regB1
+
+SQB2_B1 <- SQReg - SQReg1
+SQB2_B1
+
+gl_regB2 <- gl_reg - gl_regB1
+h <- gl_regB2
+h
+
+QMB2_B1 <- SQB2_B1 / h
+QMB2_B1
+
+Fcalc1 <- QMB2_B1 / QMRes
+Fcalc1
+
+p_valor1 <- 1 - pf(Fcalc1, h, gl_res)
+p_valor1
+```
+
+Dessa forma, o quadro da ANOVA sob a hipótese $H_0: \beta_4 = \beta_5 = \beta_6 = \beta_7 = \beta_8 = \beta_9 = 0$ usando a abordagem de modelo completo e modelo reduzido, fica:
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+ftab1 <- qf(0.95, gl_regB2, gl_res)
+
+data.frame(
+  "FV" = c("H0", "Resíduo", "Total"),
+  "gl" = c(gl_regB2, gl_res, gltotal),
+  "SQ" = c(SQB2_B1, SQRes, SQTotal) |> round(3),
+  "QM" = c(QMB2_B1, QMRes, NA) |> round(3),
+  "Fcal" = c(Fcalc1, NA, NA) |> round(3),
+  "Ftab" = c(ftab1, NA, NA) |> round(2),
+  "p.valor" = c(p_valor1, NA, NA) |> round(6)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "Teste de Regressão Global - H0: Beta4 = Beta5 = Beta6 = Beta7 = Beta8 = Beta9 = 0",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que o $F_{cal} > F_{tab}$, para $F(0.05, 6, 9)$, há evidência para rejeitarmos $H_0: \beta_4 = \beta_5 = \beta_6 = \beta_7 = \beta_8 = \beta_9 = 0$ ao nível de 5% de significância, ou seja, os termos de segunda ordem não são todos nulos e são importantes para a predição de $\mathbf{y_2}$.
+
+### SAS
+
+```{r}
+#| eval: false
+
+* ----------------------------------------------------------------------------;
+* Modelo completo vs reduzido para testar H0: B11 = B22 = B33 = B12 = B13 = B23 = 0 ;
+* ----------------------------------------------------------------------------;
+X1 = c0||c1||c2||c3;
+gl_regB1 = ncol(X1)-1;
+* Modelo reduzido (1);
+SQReg1 = t(y2)*(X1*inv(t(X1)*X1)*t(X1)-(1/n)*Jnn)*y2;
+SQB2_B1 = SQReg - SQReg1;
+gl_regB2 = gl_reg - gl_regB1;
+h = gl_regB2;
+QMB2_B1 = SQB2_B1/h;
+Fcalc1 = QMB2_B1/QMRes;
+p_valor1 = 1-cdf('F',Fcalc1,h,glres);
+
+print '------------------------------------------------------------',
+      'Teste da hipótese H01: B11 = B22 = B33 = B12 = B13 = B23 = 0',
+      'usando abordagem Modelo completo x Modelo reduzido',
+	  '------------------------------------------------------------';
+print 'g.l. do modelo completo .............................................' gl_reg,
+      'g.l. do modelo reduzido por H0: B11 = B22 = B33 = B12 = B13 = B23 = 0' gl_regB1,
+      'g.l. da diferença (Modelo completo - Modelo reduzido)................' h,,;
+print 'Quadro de ANOVA para testar H01: B11 = B22 = B33 = B12 = B13 = B23 = 0',,
+'H01      ' h       SQB2_B1[format=10.4] QMB2_B1[format=10.4] Fcalc1[format=10.4] p_valor1[format=10.4],,
+'Resíduo  ' glres   SQRes[format=10.4]   QMRes[format=10.4],,
+'Total    ' gltotal SQTotal[format=10.4],,,,;
+```
+:::
+
+### Hipótese 2
+
+Também podemos testar se todos os termos lineares do modelo são nulos, ou seja, $H_0: \beta_1 = \beta_2 = \beta_3 = 0$.
+
+$$
+\begin{align}
+H_0&: \beta_1 = \beta_2 = \beta_3 = 0 \\
+H_a&: \text{Pelo menos um dos } \beta's \text{ não é nulo}
+\end{align}
+$$
+
+Com essa hipótese, temos como **modelo reduzido**:
+
+$$y_2 = \beta_4^*x_1^2 + \beta_5^*x_2^2 + \beta_6^*x_3^2 + \beta_7^*x_1x_2 + \beta_8^*x_1x_3 + \beta_9^*x_2x_3 + \epsilon^*$$
+
+::: panel-tabset
+### R
+
+```{r}
+X1 <- cbind(x0, x11, x22, x33, x12, x13, x23)
+X1
+```
+
+Novamente, calcularemos os graus de liberdade, somas de quadrados, quadrados médios, estatística F e p-valor para o novo modelo reduzido.
+
+```{r}
+SQReg1 <- t(y2) %*% (X1 %*% solve(t(X1) %*% X1) %*% t(X1) - (1 / n) * Jnn) %*% y2
+SQReg1
+
+gl_regB1 <- ncol(X1) - 1
+gl_regB1
+
+SQB2_B1 <- SQReg - SQReg1
+SQB2_B1
+
+gl_regB2 <- gl_reg - gl_regB1
+h <- gl_regB2
+h
+
+QMB2_B1 <- SQB2_B1 / h
+QMB2_B1
+
+Fcalc2 <- QMB2_B1 / QMRes
+Fcalc2
+
+p_valor2 <- 1 - pf(Fcalc2, h, gl_res)
+p_valor2
+```
+
+Dessa forma, o quadro da ANOVA sob a hipótese $H_0: \beta_1 = \beta_2 = \beta_3 = 0$ usando a abordagem de modelo completo e modelo reduzido, fica:
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+ftab2 <- qf(0.95, gl_regB2, gl_res)
+
+data.frame(
+  "FV" = c("H0", "Resíduo", "Total"),
+  "gl" = c(gl_regB2, gl_res, gltotal),
+  "SQ" = c(SQB2_B1, SQRes, SQTotal) |> round(3),
+  "QM" = c(QMB2_B1, QMRes, NA) |> round(3),
+  "Fcal" = c(Fcalc2, NA, NA) |> round(3),
+  "Ftab" = c(ftab2, NA, NA) |> round(2),
+  "p.valor" = c(p_valor2, NA, NA) |> round(6)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "Teste de Regressão Global - H0: Beta1 = Beta2 = Beta3 = 0",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que o $F_{cal} > F_{tab}$, para $F(0.05, 3, 9)$, há evidência para rejeitarmos $H_0: \beta_1 = \beta_2 = \beta_3 = 0$ ao nível de 5% de significância, ou seja, pelo menos um dos termos lineares do modelo não são nulos ($x_1$, $x_2$ ou $x_3$), sendo importante para predizer $\mathbf{y_2}$.
+
+### SAS
+
+```{r}
+#| eval: false
+
+* ---------------------------------------------------------------;
+*  Modelo completo vs reduzido para testar H02: B1 = B2 = B3 = 0 ;
+* ---------------------------------------------------------------;
+* Modelo reduzido (2);
+X1 = c0||c11||c22||c33||c12||c13||c23;
+gl_regB1 = ncol(X1)-1;
+SQReg1 = t(y2)*(X1*inv(t(X1)*X1)*t(X1)-(1/n)*Jnn)*y2;
+SQB2_B1 = SQReg - SQReg1;
+gl_regB2 = gl_reg - gl_regB1;
+h = gl_regB2;
+QMB2_B1 = SQB2_B1/h;
+Fcalc2 = QMB2_B1/QMRes;
+p_valor2 = 1-cdf('F',Fcalc2,h,glres);
+
+print '--------------------------------------------------',
+      'Teste da Hipótese H02: B1 = B2 = B3 = 0           ',
+      'usando abordagem Modelo completo x Modelo reduzido',
+      '--------------------------------------------------',;
+
+print 'g.l. do modelo completo ................................' gl_reg,
+      'g.l. do modelo reduzido por H0: B1 = B2 = B3 = 0 .......' gl_regB1,
+      'g.l. da diferença (Modelo completo - Modelo reduzido)...' h,,;
+print 'Quadro de ANOVA para testar H02: B1 = B2 = B3 = 0',,
+'H02      ' h       SQB2_B1[format=10.4] QMB2_B1[format=10.4] Fcalc2[format=10.4] p_valor2[format=10.4],,
+'Resíduo  ' glres   SQRes[format=10.4]   QMRes[format=10.4],,
+'Total    ' gltotal SQTotal[format=10.4],,,,;
+```
+:::
+
+### Hipótese Linear Geral
+
+Os detalhes sobre a hipótese linear geral estão na @sec-hlg.
+
+$$
+\begin{align}
+H_0 &: \mathbf{C} \boldsymbol{\beta} = 0 \\
+H_a &: \mathbf{C} \boldsymbol{\beta} \ne 0 
+\end{align}
+$$
+
+Aqui, realizaremos o teste sobre a hipótese $H_0: \beta_1 = \beta_2 = \beta_3 = 0$ com a seguinte proposta de matriz de coeficientes $\mathbf{C}$.
+
+$$
+\begin{align}
+H_0 &: \beta_1 = \beta_2 = \beta_3 = 0 \\
+H_0 &: \mathbf{C} \boldsymbol{\beta} = 
+\begin{bmatrix}
+0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+\end{bmatrix}
+\begin{bmatrix}
+\beta_0 \\ \beta_1 \\ \beta_2 \\ \beta_3
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0 \\ 0
+\end{bmatrix} \\
+H_0 &:
+\begin{bmatrix}
+\beta_1 \\ \beta_2 \\ \beta_3
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0 \\ 0
+\end{bmatrix}
+\end{align}
+$$
+
+::: panel-tabset
+### R
+
+```{r}
+C <- matrix(
+  c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 1, 0, 0, 0, 0, 0, 0), 
+  ncol = 10, nrow = 3, byrow = TRUE
+)
+C
+```
+
+```{r}
+CBeta <- C %*% Beta
+CBeta
+
+SQHip <- t(CBeta) %*% solve(C %*% solve(t(X) %*% X) %*% t(C)) %*% CBeta
+SQHip
+
+q <- nrow(C)
+
+QMHip <- SQHip / q
+QMHip
+
+Fcalc3 <- QMHip / QMRes
+Fcalc3
+
+p_valor3 <- 1 - pf(Fcalc3, q, gl_res)
+p_valor3
+```
+
+O quadro da ANOVA sob a hipótese $H_0: \beta_1 = \beta_2 = \beta_3 = 0$ usando a abordagem da hipótese linear geral, fica:
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+ftab3 <- qf(0.95, q, gl_res)
+
+data.frame(
+  "FV" = c("H0", "Resíduo", "Total"),
+  "gl" = c(q, gl_res, gltotal),
+  "SQ" = c(SQHip, SQRes, SQTotal) |> round(3),
+  "QM" = c(QMHip, QMRes, NA) |> round(3),
+  "Fcal" = c(Fcalc3, NA, NA) |> round(3),
+  "Ftab" = c(ftab3, NA, NA) |> round(2),
+  "p.valor" = c(p_valor3, NA, NA) |> round(6)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "Teste de Regressão com hipótese linear geral - H0: Beta1 = Beta2 = Beta3 = 0",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que o $F_{cal} > F_{tab}$, para $F(0.05, 3, 9)$, há evidência para rejeitarmos $H_0: \beta_1 = \beta_2 = \beta_3 = 0$ ao nível de 5% de significância, ou seja, pelo menos um dos termos lineares do modelo não são nulos ($x_1$, $x_2$ ou $x_3$), sendo importante para predizer $\mathbf{y_2}$.
+
+Com isso, nota-se que tanto a abordagem de modelo completo e modelo reduzido, como a da hipótese linear geral geram o mesmo resultado.
+
+### SAS
+
+```{r}
+#| eval: false
+
+* ----------------------------------------------------------------;
+* Hipótese linear geral (C*Beta=0) para testar H0:B1 = B2 = B3 = 0;
+* ----------------------------------------------------------------;
+C = {0 1 0 0 0 0 0 0 0 0,
+     0 0 1 0 0 0 0 0 0 0,
+	   0 0 0 1 0 0 0 0 0 0};
+CBeta = C*Beta;
+SQHip = t(CBeta)*inv(C*inv(t(X)*X)*t(C))*CBeta;
+q = nrow(C);
+QMHip = SQHip/q;
+FCalc3 = QMHip/QMRes;
+p_valor3 = 1-cdf('F',Fcalc3,q,glres);
+print 'Hipótese H0: B1 = B2 = B3 = 0 usando abordagem C*Beta = 0',,,
+'Hipótese H0' q       SQHip[format=10.4] QMHip[format=10.4] Fcalc3[format=10.4] p_valor3[format=10.4],,
+'Resíduo    ' glres   SQRes[format=10.4] QMRes[format=10.4],,
+'Total      ' gltotal SQTotal[format=10.4],,,,;
+```
+:::
+
+Agora, demonstraremos que a matriz de coeficientes $\mathbf{C}$ pode assumir mais de uma forma para o teste de uma mesma hipótese. Construiremos três matrizes de coeficientes $\mathbf{C}$ (`C1`, `C2` e `C3`), tendo como hipótese $H_0: \beta_1 = \beta_2 = \beta_3$.
+
+$$H_0: \beta_1 = \beta_2 = \beta_3$$
+
+$$
+\begin{align}
+H_0 &: \mathbf{C_1} \boldsymbol{\beta} = 
+\begin{bmatrix}
+0 & 1 & -1 &  0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 &  1 & -1 & 0 & 0 & 0 & 0 & 0 & 0
+\end{bmatrix}
+\begin{bmatrix}
+\beta_0 \\ \beta_1 \\ \beta_2 \\ \beta_3 \\ \beta_4 \\ \beta_5 \\ \beta_6 \\ \beta_7 \\ \beta_8 \\ \beta_9
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix} \\
+H_0 &:
+\begin{bmatrix}
+\beta_1 - \beta_2 \\ \beta_2 - \beta_3
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix}
+\iff
+\beta_1 = \beta2 \quad ; \quad \beta_2 = \beta3
+\end{align}
+$$
+
+$$
+\begin{align}
+H_0 &: \mathbf{C_2} \boldsymbol{\beta} = 
+\begin{bmatrix}
+0 & 2 & -1 & -1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 &  1 & -1 & 0 & 0 & 0 & 0 & 0 & 0
+\end{bmatrix}
+\begin{bmatrix}
+\beta_0 \\ \beta_1 \\ \beta_2 \\ \beta_3 \\ \beta_4 \\ \beta_5 \\ \beta_6 \\ \beta_7 \\ \beta_8 \\ \beta_9
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix} \\
+H_0 &:
+\begin{bmatrix}
+2\beta_1 - \beta_2 - \beta_3 \\ \beta_2 - \beta_3
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix}
+\iff
+2\beta_1 = \beta2 + \beta_3 \quad ; \quad \beta_2 = \beta3
+\end{align}
+$$
+
+$$
+\begin{align}
+H_0 &: \mathbf{C_3} \boldsymbol{\beta} = 
+\begin{bmatrix}
+0 & 1 & 0 & -1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 1 & -1 & 0 & 0 & 0 & 0 & 0 & 0
+\end{bmatrix}
+\begin{bmatrix}
+\beta_0 \\ \beta_1 \\ \beta_2 \\ \beta_3 \\ \beta_4 \\ \beta_5 \\ \beta_6 \\ \beta_7 \\ \beta_8 \\ \beta_9
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix} \\
+H_0 &:
+\begin{bmatrix}
+\beta_1 - \beta_3 \\ \beta_2 - \beta_3
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix}
+\iff
+\beta_1 = \beta3 \quad ; \quad \beta_2 = \beta3
+\end{align}
+$$
+
+::: panel-tabset
+### R
+
+```{r}
+C1 <- matrix(
+  c(0, 1, -1,  0, 0, 0, 0, 0, 0, 0,
+    0, 0,  1, -1, 0, 0, 0, 0, 0, 0), 
+  ncol = 10, nrow = 2, byrow = TRUE
+)
+C1
+```
+
+```{r}
+C2 <- matrix(
+  c(0, 2, -1, -1, 0, 0, 0, 0, 0, 0,
+    0, 0,  1, -1, 0, 0, 0, 0, 0, 0), 
+  ncol = 10, nrow = 2, byrow = TRUE
+)
+C2
+```
+
+```{r}
+C3 <- matrix(
+  c(0, 1, 0,  -1, 0, 0, 0, 0, 0, 0,
+    0, 0, 1, -1, 0, 0, 0, 0, 0, 0), 
+  ncol = 10, nrow = 2, byrow = TRUE
+)
+C3
+```
+
+Para aplicarmos cada uma das matrizes de coeficientes, criaremos uma função.
+
+```{r}
+hlg <- function(C) {
+
+  # Calculando CBeta
+  CBeta <- C %*% Beta |> round(3)
+  
+  # Calculando SQHip
+  SQHip <- t(CBeta) %*% solve(C %*% solve(t(X) %*% X) %*% t(C)) %*% CBeta
+  
+  # Obtendo o número de linhas de C
+  q <- nrow(C)
+  
+  # Calculando QMHip
+  QMHip <- SQHip / q
+  
+  # Calculando Fcalc
+  Fcalc3 <- QMHip / QMRes
+  
+  # Calculando p_valor
+  p_valor3 <- 1 - pf(Fcalc3, q, gl_res)
+  
+  # Retornando resultados
+  return(list(CBeta = CBeta, SQHip = SQHip, QMHip = QMHip, Fcalc = Fcalc3, p_valor = p_valor3))
+}
+```
+
+Para cada um dos $\mathbf{C}'s$ (`C1`, `C2` e `C3`), aplicaremos o teste com a função criada `hlg()`.
+
+```{r}
+# Definindo os valores para C
+C_lista <- list(C1 = C1, C2 = C2, C3 = C3)
+
+# Criando uma lista para armazenar os resultados
+resultados <- list()
+
+# Calculando os resultados para cada objeto C
+for (i in 1:length(C_lista)) {
+  resultados[[paste0("C", i)]] <- hlg(C_lista[[i]])
+}
+```
+
+```{r}
+tabela_resultados <- data.frame(
+  SQHip = sapply(resultados, function(x) x$SQHip),
+  QMHip = sapply(resultados, function(x) x$QMHip),
+  Fcalc = sapply(resultados, function(x) x$Fcalc),
+  p_valor = sapply(resultados, function(x) x$p_valor)
+)
+
+tabela_resultados
+```
+
+Apesar de diferentes matrizes de coeficientes $\mathbf{C}$, obtemos os mesmos valores para os testes de hipótese. Como conclusão, não temos evidências para rejeitar a hipótese nula $H_0: \beta_1 = \beta_2 = \beta_3$, ao nível de 5% de significância.
+
+### SAS
+
+```{r}
+#| eval: false
+
+* ------------------------------------------------------------------------- ;
+* Hipótese linear geral (C*Beta=0) para testar H0: B1 = B2 = B3 (SOLUÇÃO 1) ;
+*                           (Matriz C não é única!)                         ;
+* ------------------------------------------------------------------------- ;
+C = {0 1 -1  0 0 0 0 0 0 0,
+     0 0  1 -1 0 0 0 0 0 0};
+CBeta = C*Beta;
+SQHip = t(CBeta)*inv(C*inv(t(X)*X)*t(C))*CBeta;
+q = nrow(C);
+QMHip = SQHip/q;
+FCalc3 = QMHip/QMRes;
+p_valor3 = 1-cdf('F',Fcalc3,q,glres);
+print 'H0: B1 = B2 = B3 usando C*Beta = 0 (SOLUÇÃO 1)',,,
+'Hipótese H0' q       SQHip[format=10.4] QMHip[format=10.4] Fcalc3[format=10.4] p_valor3[format=10.4],,
+'Resíduo    ' glres   SQRes[format=10.4] QMRes[format=10.4],,
+'Total      ' gltotal SQTotal[format=10.4],,,,;
+```
+
+```{r}
+#| eval: false
+
+* ------------------------------------------------------------------------- ;
+* Hipótese linear geral (C*Beta=0) para testar H0: B1 = B2 = B3 (SOLUÇÃO 2) ;
+* ------------------------------------------------------------------------- ;
+C = {0 2 -1 -1 0 0 0 0 0 0,
+     0 0  1 -1 0 0 0 0 0 0};
+CBeta = C*Beta;
+SQHip = t(CBeta)*inv(C*inv(t(X)*X)*t(C))*CBeta;
+q = nrow(C);
+QMHip = SQHip/q;
+FCalc3 = QMHip/QMRes;
+p_valor3 = 1-cdf('F',Fcalc3,q,glres);
+print 'H0: B1 = B2 = B3 usando C*Beta = 0 (SOLUÇÃO 2)',,,
+'Hipótese H0' q       SQHip[format=10.4] QMHip[format=10.4] Fcalc3[format=10.4] p_valor3[format=10.4],,
+'Resíduo    ' glres   SQRes[format=10.4] QMRes[format=10.4],,
+'Total      ' gltotal SQTotal[format=10.4],,,,;
+```
+
+```{r}
+#| eval: false
+
+* -------------------------------------------------------------------------;
+* Hipótese linear geral (C*Beta=0) para testar H0: B1 = B2 = B3 (SOLUÇÃO 3);
+* -------------------------------------------------------------------------;
+C = {0 1  0 -1 0 0 0 0 0 0,
+     0 0  1 -1 0 0 0 0 0 0};
+CBeta = C*Beta;
+SQHip = t(CBeta)*inv(C*inv(t(X)*X)*t(C))*CBeta;
+q = nrow(C);
+QMHip = SQHip/q;
+FCalc3 = QMHip/QMRes;
+p_valor3 = 1-cdf('F',Fcalc3,q,glres);
+print 'H0: B1 = B2 = B3 usando C*Beta = 0 (SOLUÇÃO 3)',,,
+'Hipótese H0' q       SQHip[format=10.4] QMHip[format=10.4] Fcalc3[format=10.4] p_valor3[format=10.4],,
+'Resíduo    ' glres   SQRes[format=10.4] QMRes[format=10.4],,
+'Total      ' gltotal SQTotal[format=10.4],,,,;
+quit;
+```
+:::
+
+## Teste de Hipótese - Exemplo 3
+
+Daremos continuidade à Hipótese Linear Geral, realizando novas hipóteses e combinações de coeficientes da matriz $\mathbf{C}$.
+
+$$
+\begin{align}
+H_0 &: \mathbf{C} \boldsymbol{\beta} = 0 \\
+H_a &: \mathbf{C} \boldsymbol{\beta} \ne 0 
+\end{align}
+$$
+
+Utilizaremos o mesmo caso abordado no @sec-th2, referente a uma reação química para formar um determinado material desejado.
+
+Aqui, consideraremos o seguinte modelo:
+
+$$
+y_{1i} = \beta_0 + \beta_1x_{i1} + \beta_2x_{i2} + \beta_3x_{i3} + \epsilon_i
+$$
+
+Realizaremos testes sobre a variável $y_1$, referente ao percentual de material não convertido.
+
+::: panel-tabset
+### R
+
+```{r}
+y1 <- c(41.5,33.8,27.7,21.7,19.9,15.0,12.2,4.3,19.3,6.4,37.6,18.0,26.3,9.9,25.0,14.1,15.2,15.9,19.6)
+
+n <- length(y1)
+x0 <- rep(1, n)
+
+x1 <- c(162,162,162,162,172,172,172,172,167,177,157,167,167,167,167,177,177,160,160)
+
+x2 <- c(23,23,30,30,25,25,30,30,27.5,27.5,27.5,32.5,22.5,27.5,27.5,20,20,34,34)
+
+x3 <- c(3,8,5,8,5,8,5,8,6.5,6.5,6.5,6.5,6.5,9.5,3.5,6.5,6.5,7.5,7.5)
+```
+
+```{r}
+Jnn <- matrix(data = 1, nrow = n, ncol = n)
+
+In <- diag(n)
+```
+
+```{r}
+X <- cbind(x0, x1, x2, x3)
+X
+```
+
+```{r}
+k <- ncol(X) - 1	     # número de variáveis regressoras
+k
+```
+
+Os parâmetros estimados de $\beta$ do modelo completo é dado por:
+
+```{r}
+Beta <- solve(t(X) %*% X) %*% t(X) %*% y1
+Beta |> round(4)
+```
+
+$$
+\hat{y}_{1} = 332,111 - 1,546 x_{1} - 1,425 x_{2} - 2,237 x_{3} + \epsilon
+$$
+
+### SAS
+
+```{r}
+#| eval: false
+
+data ChemReaction;
+* x1=temperature x2=concentration x3=time y1=unchanged y2=converted;
+input x1 x2 x3 y1 y2;
+cards;
+162    23.0    3.0    41.5    45.9
+162    23.0    8.0    33.8    53.3
+162    30.0    5.0    27.7    57.5
+162    30.0    8.0    21.7    58.8
+172    25.0    5.0    19.9    60.6
+172    25.0    8.0    15.0    58.0
+172    30.0    5.0    12.2    58.6
+172    30.0    8.0     4.3    52.4
+167    27.5    6.5    19.3    56.9
+177    27.5    6.5     6.4    55.4
+157    27.5    6.5    37.6    46.9
+167    32.5    6.5    18.0    57.3
+167    22.5    6.5    26.3    55.0
+167    27.5    9.5     9.9    58.9
+167    27.5    3.5    25.0    50.3
+177    20.0    6.5    14.1    61.1
+177    20.0    6.5    15.2    62.9
+160    34.0    7.5    15.9    60.0
+160    34.0    7.5    19.6    60.6
+;
+
+proc iml;
+*pág.262;
+* Outra forma de leitura dos dados: a partir de um dataset já criado;
+use ChemReaction;
+read all var{x1} into x1;
+read all var{x2} into x2;
+read all var{x3} into x3;
+read all var{y1} into y1;
+read all var{y2} into y2;
+
+y = y1;
+n = nrow(y);
+jn = j(n,1,1);
+In = I(n);
+X = jn||x1||x2||x3;
+k = ncol(X)-1;	* k = número de variáveis regressoras;
+
+Beta = inv(t(X)*X)*t(X)*y;
+print Beta [format=12.4];
+```
+:::
+
+### Hipótese 1
+
+A primeira hipótese que testaremos é:
+
+$$
+\begin{align}
+H_0 &: 2\beta_1 - 2\beta_2 = 2\beta_2 - \beta_3 = 0 \\
+H_0 &: \mathbf{C} \boldsymbol{\beta} = 
+\begin{bmatrix}
+0 & 1 & -1 &  0 \\
+0 & 0 &  2 & -1  \\
+\end{bmatrix}
+\begin{bmatrix}
+\beta_0 \\ \beta_1 \\ \beta_2 \\ \beta_3
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix} \\
+H_0 &: \begin{cases}
+\beta_1 - \beta_2 = 0 \\
+2\beta_2 - \beta_3 = 0
+\end{cases} 
+\iff
+H_0: 2\beta_1 = 2\beta_2 = \beta_3 = 0
+\end{align}
+$$
+
+::: panel-tabset
+### R
+
+```{r}
+C <- matrix(
+  c(0, -2,  2,  0, 
+    0,  0,  2, -1),
+  nrow = 2, byrow = TRUE
+)
+C
+```
+
+```{r}
+CBeta <- C %*% Beta
+CBeta
+
+SQHip <- t(CBeta) %*% solve(C %*% (solve(t(X) %*% X)) %*% t(C)) %*% CBeta
+SQHip
+
+gl_Hip <- nrow(C)
+gl_Hip
+
+QMHip <- SQHip / gl_Hip
+QMHip
+```
+
+```{r}
+SQRes <- t(y1) %*% (In - X %*% solve(t(X) %*% X) %*% t(X)) %*% y1
+SQRes
+
+gl_res <- n - k - 1
+gl_res
+
+QMRes <- SQRes / gl_res
+QMRes
+```
+
+```{r}
+Fcalc1 <- QMHip / QMRes
+Fcalc1
+
+Ftab1 <- qf(0.95, gl_Hip, gl_res)
+Ftab1
+
+p_valor1 <- 1 - pf(Fcalc1, gl_Hip, gl_res) 
+p_valor1
+```
+
+Dessa forma, o quadro da ANOVA sob a hipótese $H_0: 2\beta_1 - 2\beta_2 = 2\beta_2 - \beta_3 = 0$ ou $H_0: 2\beta_1 = 2\beta_2 = \beta_3$, fica:
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+ftab1 <- qf(0.95, gl_Hip, gl_res)
+
+data.frame(
+  "FV" = c("H0", "Resíduo"),
+  "gl" = c(gl_Hip, gl_res),
+  "SQ" = c(SQHip, SQRes) |> round(3),
+  "QM" = c(QMHip, QMRes) |> round(3),
+  "Fcal" = c(Fcalc1, NA) |> round(3),
+  "Ftab" = c(ftab1, NA) |> round(3),
+  "p.valor" = c(p_valor1, NA) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "Teste de Regressão Global - H0: 2Beta1 = 2Beta2 = 2Beta3 = 0",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que o $F_{cal} < F_{tab}$, para $F(0.05, 2, 15)$, não podemos rejeitar $H_0: \beta_1 - \beta_2 = 2\beta_2 - \beta_3 = 0$ ou $H_0: 2\beta_1 = 2\beta_2 = \beta_3$ ao nível de 5% de significância.
+
+### SAS
+
+```{r}
+#| eval: false
+
+C = {0 -2 2  0, 
+     0 0  2 -1};
+gl_H0 = nrow(C);
+CBeta = C*Beta;
+SQH0 = t(CBeta)*inv(C*(inv(t(X)*X))*t(C))*CBeta;
+QMH0 = SQH0/gl_H0;
+
+SQRes = t(y)*(In - X*inv(t(X)*X)*t(X))*y;
+gl_res = n-k-1;
+QMRes = SQRes/gl_res;
+
+Fcalc = QMH0/QMRes;
+p_valor = 1-cdf('F',Fcalc,gl_H0,gl_res);
+
+print 'Exemplo 8.4.1(b): Exemplo com dados de reação química (Tabela 7.4)',,
+	  'Teste H0: 2B1 = 2B2 = B3 ou H0: B1 - B2 = 2B2 - B3 = 0',;
+print 'H0        ' gl_H0  SQH0[format=8.4]  QMH0[format=8.4]  Fcalc[format=8.4] p_valor[format=8.4],,
+      'Resíduo   ' gl_res SQRes[format=8.4] QMRes[format=8.4],,,,;
+```
+:::
+
+### Hipótese 2
+
+Agora, testaremos a hipótese $H_0: \beta_1 = \beta_2 = \beta_3$ utilizando diferentes matrizes $\mathbf{C}$:
+
+$$
+H_0: \beta_1 = \beta_2 = \beta_3
+$$
+
+$$
+\begin{align}
+H_0 &: \mathbf{C_1} \boldsymbol{\beta} = 
+\begin{bmatrix}
+0 & 1 & -1 &  0 \\
+0 & 0 &  1 & -1  \\
+\end{bmatrix}
+\begin{bmatrix}
+\beta_0 \\ \beta_1 \\ \beta_2 \\ \beta_3
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix} \\
+H_0 &: \begin{cases}
+\beta_1 - \beta_2 = 0 \\
+\beta_2 - \beta_3 = 0
+\end{cases}
+\iff
+\beta_1 = \beta2 \quad ; \quad \beta_2 = \beta_3
+\end{align}
+$$
+
+$$
+\begin{align}
+H_0 &: \mathbf{C_2} \boldsymbol{\beta} = 
+\begin{bmatrix}
+0 & 1 & -1 &  0 \\
+0 & 1 &  0 & -1  \\
+\end{bmatrix}
+\begin{bmatrix}
+\beta_0 \\ \beta_1 \\ \beta_2 \\ \beta_3
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix} \\
+H_0 &: \begin{cases}
+\beta_1 - \beta_2 = 0 \\
+\beta_1 - \beta_3 = 0
+\end{cases}
+\iff
+\beta_1 = \beta_2 \quad ; \quad \beta_1 = \beta_3
+\end{align}
+$$
+
+$$
+\begin{align}
+H_0 &: \mathbf{C_3} \boldsymbol{\beta} = 
+\begin{bmatrix}
+0 & 2 & -1 & -1 \\
+0 & 0 &  1 & -1  \\
+\end{bmatrix}
+\begin{bmatrix}
+\beta_0 \\ \beta_1 \\ \beta_2 \\ \beta_3
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix} \\
+H_0 &: \begin{cases}
+2\beta_1 - \beta_2 - \beta_3 = 0 \\
+\beta_2 - \beta_3 = 0
+\end{cases}
+\iff
+2\beta_1 = \beta_2 + \beta_3 \quad ; \quad \beta_2 = \beta_3
+\end{align}
+$$
+
+::: panel-tabset
+### R
+
+```{r}
+C1 <- matrix(
+  c(0, 1, -1,  0, 
+    0, 0,  1, -1),
+  nrow = 2, byrow = TRUE
+)
+C1
+
+SQ_C1Beta <- t(C1 %*% Beta) %*% solve(C1 %*% (solve(t(X) %*% X)) %*% t(C1)) %*% C1 %*% Beta
+SQ_C1Beta
+```
+
+```{r}
+C2 <- matrix(
+  c(0, 1, -1,  0, 
+    0, 1,  0, -1),
+  nrow = 2, byrow = TRUE
+)
+C2
+
+SQ_C2Beta <- t(C2 %*% Beta) %*% solve(C2 %*% (solve(t(X) %*% X)) %*% t(C2)) %*% C2 %*% Beta
+SQ_C2Beta
+```
+
+```{r}
+C3 <- matrix(
+  c(0, 2, -1, -1, 
+    0, 0,  1, -1),
+  nrow = 2, byrow = TRUE
+)
+C3
+
+SQ_C3Beta <- t(C3 %*% Beta) %*% solve(C3 %*% (solve(t(X) %*% X)) %*% t(C3)) %*% C3 %*% Beta
+SQ_C3Beta
+```
+
+```{r}
+#| echo: false
+
+data.frame(
+  SQ_C1 = SQ_C1Beta,
+  SQ_C2 = SQ_C2Beta,
+  SQ_C3 = SQ_C3Beta
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "Teste de Regressão Hipótese Linear Geral para diversas matrizes C - H0: Beta1 = Beta2 = Beta3 = 0"
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+* Testar a hipótese H0: B1=B2=B3 usando a hipótese linear geral;
+C1 = {0  1 -1  0, 
+      0  0  1 -1};
+SQ_C1Beta = t(C1*Beta)*inv(C1*(inv(t(X)*X))*t(C1))*C1*Beta;
+C2 = {0  1 -1  0, 
+      0  1  0 -1};
+SQ_C2Beta = t(C2*Beta)*inv(C2*(inv(t(X)*X))*t(C2))*C2*Beta;
+C3 = {0  2 -1 -1, 
+      0  0  1 -1};
+SQ_C3Beta = t(C3*Beta)*inv(C3*(inv(t(X)*X))*t(C3))*C3*Beta;
+
+print 'SQH0 para a hipótese H0: B1=B2=B3 usando diferentes matrizes C, em C*Beta=0',,,
+     SQ_C1Beta[format=12.4] SQ_C2Beta[format=12.4]SQ_C3Beta[format=12.4];
+```
+:::
+
+### Hipótese 3
+
+O próximo teste de hipótese a ser realizado é:
+
+$$
+H_0: \beta_1 = \beta_2
+$$
+
+Realizaremos o teste utilizando a hipótese linear geral e a abordagem do modelo completo e modelo reduzido.
+
+::: panel-tabset
+### R
+
+Pela hipótese linear geral, dada a matriz $\mathbf{C} = [0, 1, -1, 0]$, temos:
+
+```{r}
+C <- matrix(c(0, 1, -1, 0), nrow = 1, byrow = TRUE)
+C
+```
+
+```{r}
+CBeta <- C %*% Beta
+CBeta
+
+gl_Hip <- nrow(C)
+gl_Hip
+
+SQHip <- t(CBeta) %*% solve(C %*% (solve(t(X) %*% X)) %*% t(C)) %*% CBeta
+SQHip
+
+QMHip <- SQHip / gl_Hip
+QMHip
+
+Fcalc2 <- QMHip / QMRes
+Fcalc2
+
+p_valor2 <- 1 - pf(Fcalc2, gl_Hip, gl_res)
+p_valor2
+```
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+ftab2 <- qf(0.95, gl_Hip, gl_res)
+
+data.frame(
+  "FV" = c("H0", "Resíduo"),
+  "gl" = c(gl_Hip, gl_res),
+  "SQ" = c(SQHip, SQRes) |> round(3),
+  "QM" = c(QMHip, QMRes) |> round(3),
+  "Fcal" = c(Fcalc2, NA) |> round(3),
+  "Ftab" = c(ftab2, NA) |> round(3),
+  "p.valor" = c(p_valor2, NA) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "Teste de Regressão com Hipótese Linear Geral - H0: Beta1 = Beta2",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Pelo método do modelo completo e modelo reduzido, note que a soma de quadrados da hipótese é a mesma da hipótese linear geral.
+
+```{r}
+x12 <- x1 + x2           # Modelo reduzido: y = B0 + B12(x1+x2) + B3x3 + e
+x12
+
+Xr <- cbind(x0, x12, x3) # Matriz Xr do modelo reduzido
+Xr
+
+SQHip2 <- t(y1) %*% (X %*% solve(t(X) %*% X) %*% t(X) - Xr %*% solve(t(Xr) %*% Xr) %*% t(Xr)) %*% y1
+SQHip2
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+* Teste da hipótese H0: Beta1=Beta2;
+* (1) Usando C*Beta=0;
+C = {0  1 -1  0};
+gl_H0 = nrow(C);
+
+CBeta = C*Beta;
+SQH0 = t(CBeta)*inv(C*(inv(t(X)*X))*t(C))*CBeta;
+QMH0 = SQH0/gl_H0;
+Fcalc = QMH0/QMRes;
+p_valor = 1-cdf('F',Fcalc,gl_H0,gl_res);
+
+print 'Teste H0: B1 = B2 usando Hipótese Linear Geral',;
+print 'H0        ' gl_H0  SQH0[format=8.4]  QMH0[format=8.4]  Fcalc[format=8.4] p_valor[format=8.4],,
+      'Resíduo   ' gl_res SQRes[format=8.4] QMRes[format=8.4],,,,;
+
+* (2) Incorporando H0: Beta1 = Beta2 ao modelo;
+x12=x1+x2; * Modelo reduzido: y = B0 + B12(x1+x2) + B3x3 + e;
+Xr = jn||x12||x3; * Matriz Xr do modelo reduzido;
+
+SQH0r = t(y)*(X*inv(t(X)*X)*t(X)-Xr*inv(t(Xr)*Xr)*t(Xr))*y;
+print 'SQ de H0:B1=B2, usando modelo completo x modelo reduzido:'
+    ,,SQH0r[format=12.4]; 
+
+quit;
+```
+:::
+
+## Método de Bonferroni e Método de Scheffé
+
+Em muitos dos casos, estamos interessados em realizar **diversos** testes de hipótese **separados**, como:
+
+$$
+\begin{align}
+H_0 &: \beta_j = 0 , \quad \text{para  j = 1,2,...,k} \\
+&\text{ou} \\
+H_0 &: \boldsymbol{a'_i\beta} = 0 , \quad \text{para  i = 1,2,...}
+\end{align}
+$$
+
+Quando testamos diversas hipóteses como as apresentadas anteriormente, temos dois diferentes níveis de significância ($\alpha$):
+
+-   Nível de significância **geral** (*Familywise*) ($\alpha_f$);
+
+-   Nível de significância **por comparação** (*Comparison-wise*) ($\alpha_c$).
+
+Quando realizamos um único teste de hipótese (como os apresentados nos capítulos anteriores), utilizamos um nível de significância **geral** $\alpha_f$.
+
+Contudo, ao realizar mais de um teste de hipótese para um mesmo caso, utilizamos um nível de significância **por comparação** $\alpha_c$. Isso acarreta em um **aumento** do nível de significância geral ($\alpha_f$). Probabilisticamente, tem-se:
+
+$$\alpha_f = 1 - (1 - \alpha_c)^k$$
+
+em que $k$ é o número de execuções do teste de hipótese ao nível $\alpha_c$ de significância por teste realizado.
+
+Com isso, fixando um nível de significância $\alpha_c = 0,05$ para cada teste, conforme aumentarmos o número de testes, o nível de significância geral ($\alpha_f$) aumenta.
+
+```{r}
+#| echo: false
+
+n_teste <- 1:10
+
+tibble::tibble(
+  n_teste = n_teste,
+  alpha_f = 1 - (1 - 0.05)^(n_teste) |> round(4)
+) |> 
+  tidyr::pivot_wider(names_from = n_teste, values_from = alpha_f) |> 
+  dplyr::mutate(`Nº testes` = "Alpha f", .before = 1) |> 
+  kableExtra::kbl(align = "c") |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Para isso, serão apresentados dois métodos de comparação que protegem a inflação do nível $\alpha$-global quando diversos testes são feitos: **método de Bonferroni** e **método de Scheffé**.
+
+Como exemplo, novamente, utilizaremos os dados do @sec-rlmest.
+
+```{r}
+#| echo: false
+
+data.frame(
+  Obs = 1:12,
+  y = c(2, 3, 2, 7, 6, 8, 10, 7, 8, 12, 11, 14),
+  x1 = c(0, 2, 2, 2, 4, 4, 4, 6, 6, 6, 8, 8),
+  x2 = c(2, 6, 7, 5, 9, 8, 7, 10, 11, 9, 15, 13)
+) |> 
+  kableExtra::kbl(align = "c") |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+::: panel-tabset
+### R
+
+```{r}
+y <- c(2,3,2,7,6,8,10,7,8,12,11,14)
+
+n <- length(y)
+
+x0 <- rep(1, n)
+
+x1 <- c(0,2,2,2,4,4,4,6,6,6,8,8)
+
+x2 <- c(2,6,7,5,9,8,7,10,11,9,15,13)
+
+X <- cbind(x0, x1, x2)
+X
+
+k <- ncol(X) - 1
+
+In <- diag(n)
+```
+
+```{r}
+Beta <- solve(t(X) %*% X) %*% t(X) %*% y
+Beta
+
+a1 <- matrix(data = c(0, 1, 0), ncol = 1, byrow = TRUE)
+a1
+
+Beta1 <- t(a1) %*% Beta
+Beta1
+
+a2 <- matrix(data = c(0,0,1), ncol = 1, byrow = TRUE)
+a2
+
+Beta2 <- t(a2) %*% Beta
+Beta2
+```
+
+```{r}
+SQRes <- t(y) %*% (In - X %*% solve(t(X) %*% X) %*% t(X)) %*% y
+SQRes
+
+gl_res <- n - k - 1
+gl_res
+
+QMRes <- SQRes / gl_res
+QMRes     # QMRes = s²
+```
+
+Vamos assumir que os testes para $H_0: \beta_j = 0$, para $j = 1,2,\dots,k$, serão executados sem considerar se a hipótese global $H_0: \boldsymbol{\beta_1 = 0}$ foi rejeitada.
+
+Usamos a seguinte estatística:
+
+$$
+t_j = \frac{\hat{\beta}_j}{s\sqrt{g_{(j+1,j+1)}}}
+$$
+
+```{r}
+s <- sqrt(QMRes)
+s
+
+g <- solve(t(X) %*% X)
+g
+
+t1 <- Beta1 / (s %*% sqrt(t(a1) %*% g %*% a1))
+t1
+
+t2 <- Beta2 / (s %*% sqrt(t(a2) %*% g %*% a2))
+t2
+
+t_tab <- qt(0.975, n - k - 1)
+t_tab
+
+p_valor_t1 <- 2 * (1 - pt(abs(t1), gl_res))
+p_valor_t1
+
+p_valor_t2 <- 2 * (1 - pt(abs(t2), gl_res))
+p_valor_t2
+```
+
+Aqui, consideramos que foram realizados dois testes, com nível de significância de 5% para cada teste.
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "Teste" = c("H0: Beta1 = 0", "H0: Beta2 = 0"),
+  "t_calc" = c(t1, t2),
+  "t_tab" = c(t_tab, t_tab),
+  "p_valor" = c(p_valor_t1, p_valor_t2) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    col.names = c("Teste", "t_calc", "t_tab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+```{r}
+p <- 1 - 0.05 / (2 * k)
+p
+
+t_tab_Bon <- qt(p, n - k - 1)
+t_tab_Bon
+
+t_tab_Scheffe <- sqrt((k + 1) %*% qf(0.95, k + 1, n - k - 1)) |> as.numeric()
+t_tab_Scheffe
+```
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "Parâmetros" = c("Beta1", "Beta2"),
+  "t_calc" = c(t1, t2),
+  "t_tab" = c(t_tab, t_tab),
+  "t_Bonferroni" = c(t_tab_Bon, t_tab_Bon),
+  "t_Scheffé" = c(t_tab_Scheffe, t_tab_Scheffe)
+) |> 
+  kableExtra::kbl(align = "c") |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Nota-se que o valor do $t$ calculado (`t_calc`) para o estimador de $\beta_1$ é maior do que as estatísticas de $t$ tabelado, de $t$ de Bonferroni e de $t$ de Scheffé, assim, rejeita-se a hipótese $H_0: \beta_1 = 0$, com um nível de significância geral $\alpha_f = 0, 05$.
+
+Por outro lado, para o estimador de $\beta_2$, obteve-se um valor absoluto de $t$ maior que o $t$ tabelado, porém inferior a do $t$ de Bonferroni e do $t$ de Scheffé. Assim, utilizando os dois métodos de nível de significância por comparação, não temos evidências para rejeitar a hipótese $H_0: \beta_2 = 0$.
+
+### SAS
+
+```{r}
+#| eval: false
+
+proc iml;
+y = {2,3,2,7,6,8,10,7,8,12,11,14};
+n = nrow(y);
+x0 = j(n,1,1);
+x1 = {0,2,2,2,4,4,4,6,6,6,8,8};
+x2 = {2,6,7,5,9,8,7,10,11,9,15,13};
+X = x0||x1||x2;
+k = ncol(X)-1;
+In = I(n);
+```
+
+```{r}
+#| eval: false
+
+Beta = inv(t(X)*X)*t(X)*y;
+a0 = {1,0,0}; Beta0 = t(a0)*Beta; 
+a1 = {0,1,0}; Beta1 = t(a1)*Beta;
+a2 = {0,0,1}; Beta2 = t(a2)*Beta;
+```
+
+```{r}
+#| eval: false
+
+SQRes = t(y)*(In - X*inv(t(X)*X)*t(X))*y;
+gl_res = n-k-1;
+QMRes = SQRes/gl_res;
+s = sqrt(QMRes);
+G = inv(t(X)*X);
+```
+
+```{r}
+#| eval: false
+
+t1 = Beta1/(s*sqrt(t(a1)*G*a1));
+t2 = Beta2/(s*sqrt(t(a2)*G*a2));
+p_valor_t1 = 2*(1-cdf('t',abs(t1),gl_res));
+p_valor_t2 = 2*(1-cdf('t',abs(t2),gl_res));
+```
+
+```{r}
+#| eval: false
+
+p = 1-0.05/(2*k);
+t_tab = tinv(0.975,n-k-1);  					* calcula t-tabelado;
+t_Bon = tinv(p,n-k-1);  						* calcula t-tabelado para Método de Bonferroni;
+t_Scheffe = sqrt((k+1)*finv(0.95,k+1,n-k-1));	* calcula t-tabelado para Método de Scheffé;
+```
+
+```{r}
+#| eval: false
+
+print 'Exemplo 8.5.2' ,, 'Testes de hipótese H0: Bi = 0 vs Ha: Bi dif 0',,
+	  'H01: B1 = 0  ' 't_cal1 =' t1[format=8.4] '     p-valor = ' p_valor_t1[format=10.4],,
+	  'H02: B2 = 0  ' 't_cal2 =' t2[format=8.4] '     p-valor = ' p_valor_t2[format=10.4],,,,
+	  '----------------------------------------------',
+	  'alfa = 5% => t(0,025; 9 g.l.) ='  t_tab[format=12.4],
+	  '----------------------------------------------',,,
+	  'Método de Bonferroni', 't(0,0125; 9 g.l.) =' t_Bon[format=12.4],,,,
+	  'Método de Scheffé   ', 't-Scheffé         =' t_Scheffe[format=12.4];
+quit;
+```
+:::
