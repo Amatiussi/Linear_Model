@@ -2,6 +2,10 @@
 
 Este repositório contém o material da disciplina `Modelos Lineares I` (2025), ministrada pelo Prof. Dr. César Gonçalves de Lima na ESALQ/USP, como parte do Programa de Pós-Graduação em Estatística e Experimentação Agronômica. O objetivo deste repositório é disponibilizar os scripts e exercícios utilizados nas aulas, originalmente desenvolvidos em SAS, convertidos para a linguagem de programação R.
 
+## Material
+Este material foi desenvolvido com Quarto e publicado como uma página HTML via GitHub Pages.
+👉[Link](https://amatiussi.github.io/Linear_Model/)
+
 ## Conteúdo 
 O conteúdo e exercícios de aula abordam os seguintes tópicos:
 
