@@ -4953,3 +4953,991 @@ print 'Exemplo 8.5.2' ,, 'Testes de hipótese H0: Bi = 0 vs Ha: Bi dif 0',,
 quit;
 ```
 :::
+
+# Modelos de Análise de Variância (ANOVA)
+
+## Capítulo 13 - ANOVA com um fator: Caso Balanceado
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+options(scipen = 999999, knitr.kable.NA = '')
+
+library(MASS)
+```
+
+### Introdução
+
+O modelo de análise de variância (ANOVA) consiste em comparar as médias de tratamentos para alguma variável resposta. O modelo matemático pode ser representado da seguinte maneira:
+
+$$
+y_{ij} = \mu + \tau_i + \epsilon_{ij} \space \text{ , para } i = 1,\dots,a \space \text{ e } \space j = 1,\dots,n
+$$
+
+em que:
+
+-   $y_{ij}$ é o valor observado na $j$−ésima repetição do $i$−ésimo nível de tratamento;
+
+-   $\mu$ é uma constante comum a todas as observações, geralmente a média geral;
+
+-   $\tau_i$ é o efeito do $i$−ésimo nível de tratamento;
+
+-   $\epsilon_{ij}$ é o erro experimental observado na $j$−ésima repetição do $i$−ésimo nível de tratamento.
+
+Quando o modelo é representado na forma matricial $\mathbf{y} = \mathbf{X} \boldsymbol{\beta} + \boldsymbol{\epsilon}$, a matriz de delineamento $\mathbf{X}$ não é de posto completo (**posto incompleto**), sendo assim um modelo dito **superparametrizado**. Dessa forma, é necessário adequar a metodologia aplicada nos modelos de regressão.
+
+Neste primeiro momento, trataremos dos modelos ANOVA **balanceados**, ou seja, todos os tratamentos apresentam número igual de observações, com **um fator de tratamento** (*one-way model*).
+
+Como exemplo, temos o seguinte caso: *Um pesquisador deseja comparar dois aditivos usados para melhorar o desempenho da gasolina. Suponhamos que:*
+
+-   Sem aditivos: carro percorre $\mu$ quilômetros por litro;
+
+-   Com aditivo 1: acréscimo de $tau_1$ quilômetros por litro;
+
+-   Com aditivo 2: acréscimo de $tau_2$ quilômetros por litro.
+
+Considerando seis carros idênticos e escolhendo, aleatoriamente, três carros para adicionar o aditivo 1 e três carros para adicionar o aditivo 2, ou seja, três repetições para cada tipo de aditivo, o modelo matemático fica:
+
+$$
+y_{ij} = \mu + \tau_i + \epsilon_{ij}, \space i = 1,2 \space j = 1,2,3
+$$
+
+em que $y_{ij}$ é a quilometragem por litro observada no $j$-ésimo carro que recebeu o $i$-ésimo aditivo.
+
+Matricialmente, $\mathbf{y} = \mathbf{X} \boldsymbol{\beta} + \boldsymbol{\epsilon}$, temos:
+
+$$
+\begin{cases}
+\mu + \tau_1 + \epsilon_{11} \\
+\mu + \tau_1 + \epsilon_{12} \\
+\mu + \tau_1 + \epsilon_{13} \\
+\mu + \tau_2 + \epsilon_{21} \\
+\mu + \tau_2 + \epsilon_{22} \\
+\mu + \tau_2 + \epsilon_{23} \\
+\end{cases}
+=
+\begin{bmatrix}
+y_{11} \\ y_{12} \\ y_{13} \\ y_{21} \\ y_{22} \\ y_{23}
+\end{bmatrix}
+=
+\begin{bmatrix}
+1 & 1 & 0 \\
+1 & 1 & 0 \\
+1 & 1 & 0 \\
+1 & 0 & 1 \\
+1 & 0 & 1 \\
+1 & 0 & 1 \\
+\end{bmatrix}
+\begin{bmatrix}
+\mu \\ \tau_1 \\ \tau_2
+\end{bmatrix}
++
+\begin{bmatrix}
+\epsilon_{11} \\ \epsilon_{12} \\ \epsilon_{13} \\ \epsilon_{21} \\ \epsilon_{22} \\ \epsilon_{23}
+\end{bmatrix}
+$$
+
+Note que a matriz $\mathbf{X}$, de dimensão $6 \times 3$, é de posto incompleto (posto($\mathbf{X}$) = 2), assim, não é possível estimar diretamente os parâmetros do vetor $\boldsymbol{\beta} = [\mu,\tau_1,\tau_2]'$, pois apresentam infinitas soluções (**não apresenta solução única**).
+
+A seguir, serão apresentados métodos para estimar os parâmetros do vetor $\boldsymbol{\beta}$, considerando os seguintes valores de $y_{ij}$:
+
+```{r}
+#| echo: false
+
+data.frame(
+  ad1 = c(14, 16, 15),
+  ad2 = c(18, 19, 17)
+) |> 
+  kableExtra::kbl(align = "c", col.names = c("Aditivo 1 (y1)", "Aditivo 2 (y2)")) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+### Estimação dos parâmetros
+
+Os dados descritos anteriormente são os seguintes:
+
+::: panel-tabset
+### R
+
+```{r}
+y <- as.vector(c(14,16,15,18,19,17))
+y
+
+X <- matrix(c(
+  1, 1, 0, 
+  1, 1, 0,
+  1, 1, 0, 
+  1, 0, 1, 
+  1, 0, 1, 
+  1, 0, 1
+),
+ncol = 3, byrow = TRUE
+)
+X
+```
+
+A matriz $\mathbf{X'X}$ (`XLX`) e o vetor $\mathbf{X'y}$ (`XLy`) são calculados a seguir:
+
+```{r}
+XLX <- t(X) %*% X
+XLX
+
+XLy <- t(X) %*% y
+XLy
+```
+
+Com a matriz $\mathbf{X'X}$, obtemos o número de observações totais (6) e o número de observações dos tratamentos (3 para cada aditivo). O vetor $\mathbf{X'y}$ nos retorna o total dos valores observados por tratamento (45 km/L para o aditivo 1 e 54 km/L para o aditivo 2), além do total global (99 km/L).
+
+Para calcular o posto das matrizes $\mathbf{X}$ e $\mathbf{X'X}$, utilizaremos a função `ginv()` do pacote `MASS`, que calcula a inversa generalizada de Moore-Penrose de uma matriz.
+
+```{r}
+#| eval: false
+
+install.packages("MASS")
+library(MASS)
+```
+
+O posto de uma matriz idempotente é o traço do produto de uma matriz pela sua inversa generalizada, ou seja, é a soma dos elementos da diagonal.
+
+```{r}
+rank_X <- sum(diag(X %*% ginv(X)))
+rank_X
+
+rank_XLX <- sum(diag(XLX %*% ginv(XLX)))
+rank_XLX
+```
+
+Fazendo a diferença entre o número de parâmetros do modelo (`p`) com o posto da matriz de delineamento $\mathbf{X}$ (`k`), confirmamos que se trata de uma matriz de posto incompleto (`defRank`).
+
+```{r}
+# Número de parâmetros
+p <- ncol(X)
+p
+
+# Posto(X)
+k <- rank_X
+k
+
+# Deficiência de rank - mostra que é de posto incompleto
+defRank <- p - k
+defRank
+```
+
+Para estimar o vetor de parâmetros $\boldsymbol{\beta} = [\mu,\tau_1,\tau_2]'$, utilizamos o Método dos Mínimos Quadrados Ordinários (MQO) que busca o $\boldsymbol{\hat\beta}$ que minimize a soma de quadrados dos desvios. O sistema de equações normais é dado por:
+
+$$
+\mathbf(X'X) \boldsymbol{\hat\beta} = \mathbf{X' y}
+$$
+
+Aqui, considera-se que o modelo matricial $\mathbf{y} = \mathbf{X} \boldsymbol{\beta} + \boldsymbol{\epsilon}$ tem $E(\mathbf{y}) = \mathbf{X} \boldsymbol{\beta}$, $cov(\mathbf{y}) = \sigma^2 \mathbf{I}$ e que $\mathbf{X}$ é $n \times p$ de posto $k < p \le n$.
+
+Para obter uma possível solução de $\boldsymbol{\hat\beta}$, podemos utilizar qualquer **inversa generalizada** de $\mathbf{(X'X)^-}$, a partir da seguinte operação:
+
+$$\boldsymbol{\hat\beta} = \mathbf{(X'X)^- X' y}$$
+
+```{r}
+Beta0 <- ginv(XLX) %*% t(X) %*% y
+Beta0
+
+y_hat0 <- X %*% Beta0
+y_hat0
+```
+
+Outro método de estimação de $\boldsymbol{\hat\beta}$ é impondo retrições nos parâmetros (**condições marginais**). Abordaremos três tipos:
+
+-   Solução com restrição $\tau_1 = 0$: é a retrição imposta pelo software R.
+
+```{r}
+TR <- c(0, 1, 0)
+TR
+
+W <- rbind(X, TR)
+W
+
+z <- matrix(c(y, 0), ncol = 1)
+z
+
+Beta1 <- round(solve(t(W) %*% W) %*% t(W) %*% z, 2)
+Beta1
+
+y_hat1 <- X %*% Beta1
+y_hat1
+```
+
+-   Solução com restrição $\tau_2 = 0$: é a retrição imposta pelo software SAS.
+
+```{r}
+TS <- c(0, 0, 1)
+TS
+
+W <- rbind(X, TS)
+W
+
+z <- matrix(c(y, 0), ncol = 1)
+z
+
+Beta2 <- round(solve(t(W) %*% W) %*% t(W) %*% z, 2)
+Beta2
+
+y_hat2 <- X %*% Beta2
+y_hat2
+```
+
+-   Solução com restrição $\tau_1 + \tau_2 = 0$: é a retrição comumente utilizada na estatística experimental.
+
+```{r}
+TE <- c(0, 1, 1)
+TE
+
+W <- rbind(X, TE)
+W
+
+z <- matrix(c(y, 0), ncol = 1)
+z
+
+Beta3 <- round(solve(t(W) %*% W) %*% t(W) %*% z, 2)
+Beta3
+
+y_hat3 <- X %*% Beta3
+y_hat3
+```
+
+O resumo dos resultados estão descritos a seguir:
+
+```{r}
+#| echo: false
+
+data.frame(ig = Beta0, t1 = Beta1, t2 = Beta2, t3 = Beta3) |> 
+  kableExtra::kbl(
+    align = "c", caption = "Estimação de beta de acordo com a restrição",
+    col.names = c("Inv. Generaliz.", "tau1 = 0", "tau2 = 0", "tau1 + tau2 = 0")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+
+data.frame(y = y, ig = y_hat0, t1 = y_hat1, t2 = y_hat2, t3 = y_hat3) |> 
+  kableExtra::kbl(
+    align = "c", caption = "Estimação de y (y_hat) de acordo com a restrição",
+    col.names = c("y", "Inv. Generaliz.", "tau1 = 0", "tau2 = 0", "tau1 + tau2 = 0")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Note que, independentemente do $\boldsymbol{\beta}$ estimado, temos a mesma estimativa de $\mathbf{y}$ (`y_hat` ou $\hat{y}$).
+
+### SAS
+
+```{r}
+#| eval: false
+
+proc iml;
+reset fuzz;
+y = {14,16,15,18,19,17}; * vetor coluna y;
+X = {1 1 0, 
+     1 1 0,
+     1 1 0, 
+     1 0 1, 
+     1 0 1, 
+     1 0 1};
+XLX = t(X)*X;
+XLy = t(X)*y;
+print XLX XLy;
+
+rank_X = trace(X*ginv(X));
+rank_XLX = trace(XLX*ginv(XLX));
+print rank_X rank_XLX;
+
+p = ncol(X);
+k = round(trace(Ginv(XLX)*XLX));  * Cálculo do rank da matriz X;
+defRank = p-k;
+print 'Número de parâmetros =' p,,
+      'Posto(X) =' k,,    
+      'Deficiência de rank =' defRank;
+
+Beta0 = Ginv(XLX)*t(X)*y; * Solução usando inversa-G;
+y_hat0 = X*Beta0;
+print 'Solução com inversa-G:       ' Beta0 y y_hat0;
+
+TR = {0 1 0}; * Restrição do R: t1=0;
+z = y//{0};
+W = X//TR;
+Beta1 = inv(t(W)*W)*t(W)*z;
+y_hat1 = X*Beta1;
+print 'Solução com restrição: t1=0 (R)        ' Beta1 y_hat1;
+
+TS = {0 0 1}; * Restrição do SAS: t2=0;
+z = y//{0};
+W = X//TS;
+Beta2 = inv(t(W)*W)*t(W)*z;
+y_hat2 = X*Beta2;
+print 'Solução com restrição: t2=0 (SAS)      ' Beta2 y_hat2;
+
+T = {0 1 1}; * Restrição Estatística Experimental: t1+t2=0;
+z = y//{0};
+W = X//T;
+Beta3 = inv(t(W)*W)*t(W)*z;
+y_hat3 = X*Beta3;
+print 'Solução com restrição: t1+t2=0 (EstExp)' Beta3 y_hat3;
+```
+:::
+
+### Funções estimáveis
+
+Uma função $\boldsymbol{\lambda'\beta}$ é estimável no modelo $\mathbf{y} = \mathbf{X} \boldsymbol{\beta} + \boldsymbol{\epsilon}$ se existe um vetor $\mathbf{a}$ tal que $E(\mathbf{a'y}) = \boldsymbol{\lambda'\beta}$.
+
+A seguir, verificaremos se algumas combinações lineares são estimáveis de forma única.
+
+::: panel-tabset
+### R
+
+-   $\beta = \mu + \tau_1$:
+
+```{r}
+L1 <- c(1, 1, 0)
+L1
+
+L1Beta0 <- L1 %*% Beta0
+L1Beta0
+
+L1Beta1 <- L1 %*% Beta1
+L1Beta1
+
+L1Beta2 <- L1 %*% Beta2
+L1Beta2
+
+L1Beta3 <- L1 %*% Beta3
+L1Beta3
+```
+
+Dado que o produto da combinação linear pelos vetores estimados de $\boldsymbol{\beta}$ são iguais (**invariantes**), dizemos que $\beta = \mu + \tau_1$ é estimável. Portanto, independentemente da estimativa do vetor de parâmetros $\boldsymbol{\beta}$, as estimativas são iguais.
+
+-   $\beta = \tau_1 + \tau_2$:
+
+```{r}
+L2 <- c(0, 1, 1)
+L2
+
+L2Beta0 <- L2 %*% Beta0
+L2Beta0
+
+L2Beta1 <- L2 %*% Beta1
+L2Beta1
+
+L2Beta2 <- L2 %*% Beta2
+L2Beta2
+
+L2Beta3 <- L2 %*% Beta3
+L2Beta3
+```
+
+Dado que o produto da combinação linear pelos vetores estimados de $\boldsymbol{\beta}$ são diferentes, dizemos que $\beta = \tau_1 + \tau_2$ não é estimável. Portanto, funções não estimáveis não são invariantes e resultam em estimativas diferentes.
+
+### SAS
+
+```{r}
+#| eval: false
+
+L1 = t({1,1,0}); * mi+t1 é estimável!;
+L1Beta0 = L1*Beta0;
+L1Beta1 = L1*Beta1;
+L1Beta2 = L1*Beta2;
+L1Beta3 = L1*Beta3;
+print '-------------------------------',
+      'Função estimável: LBeta = mi+t1',
+      '-------------------------------',;
+print '  Estimativa R:     ' L1Beta1,, 
+      '  Estimativa SAS:   ' L1Beta2,,
+      '  Estimativa EstExp:' L1Beta3;
+
+L2 = {0 1 1}; * t1+t2 NÃO é estimável!;
+L2Beta0 = L2*Beta0;
+L2Beta1 = L2*Beta1;
+L2Beta2 = L2*Beta2;
+L2Beta3 = L2*Beta3;
+print '-----------------------------------------',
+      'Função NÃO estimável: L2Beta = T1 + T2   ',
+      '-----------------------------------------',;
+print '  Estimativa R:     ' L2Beta1,, 
+      '  Estimativa SAS:   ' L2Beta2,, 
+      '  Estimativa EstExp:' L2Beta3;
+quit;
+```
+:::
+
+### **Teste de Hipótese**
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+options(scipen = 999999, knitr.kable.NA = '')
+
+library(MASS)
+```
+
+#### Exemplo
+
+Para exemplificar o teste de hipótese em modelos ANOVA balanceada com um fator, considere o seguinte caso: *Três métodos (A, B, C) de armazenar alimentos congelados foram comparados. A variável resposta é a quantidade de ácido ascórbico (mg/100g) e os dados estão representados a seguir:*
+
+```{r}
+#| echo: false
+
+data.frame(
+  A = c(14.29, 19.10, 19.09, 16.25, 15.09, 16.61, 19.63),
+  B = c(20.06, 20.64, 18.00, 19.56, 19.47, 19.07, 18.38),
+  C = c(20.04, 26.23, 22.74, 24.04, 23.37, 25.02, 23.27)
+) |> 
+  kableExtra::kbl(align = "c") |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Como suposições do modelo $\mathbf{y} = \mathbf{X} \boldsymbol{\beta} + \boldsymbol{\epsilon}$ consideraremos:
+
+-   $E(\boldsymbol{\epsilon}) = \mathbf{0}$;
+
+-   $var(\boldsymbol{\epsilon}) = \sigma^2 \mathbf{I}$;
+
+-   $cov(\mathbf{\boldsymbol{\epsilon}}) = 0$;
+
+-   $\boldsymbol{\epsilon} \sim N(\mathbf{0}, \sigma^2 \mathbf{I})$.
+
+Novamente, utilizaremos a função `ginv()` do pacote `MASS`.
+
+```{r}
+#| eval: false
+
+install.packages("MASS")
+library(MASS)
+```
+
+#### Estimação de parâmetros
+
+::: panel-tabset
+### R
+
+```{r}
+y <- as.vector(
+  c(14.29, 19.10, 19.09, 16.25, 15.09, 16.61, 19.63,
+    20.06, 20.64, 18.00, 19.56, 19.47, 19.07, 18.38,
+    20.04, 26.23, 22.74, 24.04, 23.37, 25.02, 23.27)
+)
+y
+```
+
+A matriz de delineamento $\mathbf{X}$ do modelo matricial $\mathbf{y} = \mathbf{X} \boldsymbol{\beta} + \boldsymbol{\epsilon}$ é dada por:
+
+```{r}
+X <- matrix(c(
+  rep(1,21),
+  rep(1,7),rep(0,14),
+  rep(0,7),rep(1,7),rep(0,7),
+  rep(0,14),rep(1,7)
+),
+ncol = 4, byrow = FALSE)
+X
+```
+
+No objeto `kn`, guardaremos o número de valores observados; no `p`, o número de variáveis; e no `k`, o posto de $\mathbf{X}$.
+
+```{r}
+kn <- length(y)
+kn
+
+p <- ncol(X)
+p
+
+k <- sum(diag(X %*% ginv(X)))
+k
+
+p - k
+```
+
+Note que a diferença entre `p - k` resulta no déficit de rank. Como o resultado é 1, $\mathbf{X}$ é uma matriz de posto incompleto.
+
+Calculando $\mathbf{X'X}$ e $\mathbf{X'y}$, temos:
+
+```{r}
+XLX <- t(X) %*% X
+XLX
+
+XLy <- t(X) %*% y
+XLy
+```
+
+Com os resultados anteriores, calcularemos duas estimativas de $\boldsymbol{\beta}$ utilizando duas inversas generalizadas distintas:
+
+$$\boldsymbol{\hat\beta} = \mathbf{(X'X)^- X' y}$$
+
+-   Inversa generalizada de Moore-Penrose:
+
+```{r}
+Beta <- ginv(XLX) %*% XLy
+Beta
+```
+
+-   Inversa generalizada simples (Searle):
+
+```{r}
+XLX
+
+igXLX <- (1/7) * matrix(
+  c(0, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1),
+  ncol = 4, byrow = TRUE
+)
+igXLX |> fractions()
+
+Beta2 <- igXLX %*% XLy
+Beta2
+```
+
+A partir das duas soluções de $\mathbf{\beta}'s$, verificaremos se as seguintes funções são estimáveis:
+
+-   $\beta = \alpha_1 - \alpha_2$:
+
+```{r}
+L1 <- c(0, 1, -1, 0)
+L1
+
+L1Beta <- t(L1) %*% Beta
+L1Beta
+
+L1Beta2 <- t(L1) %*% Beta2
+L1Beta2
+```
+
+-   $\beta = \alpha_1 + \alpha_2 + \alpha_3$:
+
+```{r}
+L2 <- c(0, 1, 1, 1)
+L2
+
+L2Beta <- t(L2) %*% Beta
+L2Beta
+
+L2Beta2 <- t(L2) %*% Beta2
+L2Beta2
+```
+
+Como se pode notar, $\beta = \alpha_1 - \alpha_2$ é uma função estimável e $\beta = \alpha_1 + \alpha_2 + \alpha_3$ é uma função não estimável.
+
+### SAS
+
+```{r}
+#| eval: false
+
+options nodate nocenter ps=1000;
+
+proc iml;
+*reset print;
+reset fuzz;
+y = {14.29,19.10,19.09,16.25,15.09,16.61,19.63,
+     20.06,20.64,18.00,19.56,19.47,19.07,18.38,
+     20.04,26.23,22.74,24.04,23.37,25.02,23.27};
+X = {1 1 0 0,1 1 0 0,1 1 0 0,1 1 0 0,1 1 0 0,1 1 0 0,1 1 0 0,
+     1 0 1 0,1 0 1 0,1 0 1 0,1 0 1 0,1 0 1 0,1 0 1 0,1 0 1 0,
+     1 0 0 1,1 0 0 1,1 0 0 1,1 0 0 1,1 0 0 1,1 0 0 1,1 0 0 1};
+print X[format=5.0] y[format=8.2];
+kn = nrow(y); 
+p = ncol(X); 
+k = round(trace(X*ginv(X))); * Calcula o posto de XlinhaX;
+print 'rank(X) =' k;
+XLX = t(X)*X;
+XLy = t(X)*y;
+print 'Sistema de equações normais:' XLX XLy;
+
+Beta = ginv(XLX)*XLy; 	* Usando inversa generalizada de Moore-Penrose;
+
+igXLX = (1/7)*{0 0 0 0,
+               0 1 0 0, 
+               0 0 1 0, 
+               0 0 0 1}; 
+Beta2 = igXLX*XLy;
+print 'Duas soluções:' Beta[format=12.4] Beta2[format=12.4];
+
+L = {0, 1,-1,0}; * Lambda da função alfa1-alfa2 (estimável!);
+LBeta = t(L)*Beta;
+LBeta2 = t(L)*Beta2;
+print 'Função estimável: alfa1-alfa2:',,LBeta[format=12.4] LBeta2[format=12.4];
+
+L = {0,1,1,1}; * Lambda da função alfa1+alfa2+alfa3 (NÃO estimável!);
+LBeta = t(L)*Beta;
+LBeta2 = t(L)*Beta2;
+print 'Função NÃO estimável: alfa1+alfa2+alfa3:',,LBeta[format=12.4] LBeta2[format=12.4];
+```
+:::
+
+#### Teste de hipótese
+
+A seguir, testaremos a seguinte hipótese, seguindo o **modelo reparametrizado de médias de caselas**, $y_{ij} = \mu_{i} + \epsilon_{ij}$, em que $\mu_i = \mu + \alpha_i$:
+
+$$
+\begin{align}
+H_0&: \mu_1 = \mu_2 = \mu_3 \\
+H_a&: \text{Pelo menos duas médias diferem entre si}
+\end{align}
+$$
+
+Como $\mu_i = \mu + \alpha_i$, a hipótese anterior é equivalente a seguinte:
+
+$$
+\begin{align}
+H_0&: \alpha_1 = \alpha_2 = \alpha_3 \\
+H_a&: \text{Pelo menos dois tratamentos diferem entre si}
+\end{align}
+$$
+
+Utilizaremos duas abordagens para a realização do teste de hipótese: **modelo completo x modelo reduzido** e **contrastes**.
+
+##### Modelo Completo x Modelo Reduzido
+
+::: panel-tabset
+### R
+
+```{r}
+In <- diag(kn)
+Jn <- matrix(1, nrow = kn, ncol = kn)
+```
+
+A soma de quadrados total (`SQTotal`) é dada por:
+
+$$
+SQTotal = \mathbf{y'} \left(\mathbf{I} - \frac{1}n \mathbf{J}\right) \mathbf{y}
+$$
+
+E seus graus de liberdade, pelo traço do produto de sua matriz núcleo pela inversa generalizada.
+
+```{r}
+# Total
+Tot <- In - (1 / kn) * Jn
+
+SQTotal <- t(y) %*% Tot %*% y
+SQTotal
+
+gl_total <- round(sum(diag(Tot %*% ginv(Tot))))
+gl_total
+```
+
+A soma de quadrados para os $\alpha's$ ajustada para $\mu$ ($SQ(\alpha \mid \mu)$) pode ser expressa como uma forma quadrática de $\mathbf{y}$:
+
+$$
+SQ(\alpha \mid \mu) = \mathbf{y'} \left[\mathbf{X(X'X)^-X'} - \frac{1}n \mathbf{J}\right] \mathbf{y}
+$$
+
+```{r}
+# Tratamentos
+A <- X %*% ginv(t(X) %*% X) %*% t(X) - (1 / kn) * Jn
+
+SQTrat <- t(y) %*% A %*% y
+SQTrat
+
+gl_trat <- round(sum(diag(A %*% ginv(A))))
+gl_trat
+
+QMTrat <- SQTrat / gl_trat
+QMTrat
+```
+
+A soma de quadrados dos resíduos (`SQRes`) é dada por:
+
+$$
+SQRes = \mathbf{y'} \left[\mathbf{I} - \mathbf{X(X'X)^-X'}\right] \mathbf{y}
+$$
+
+```{r}
+# Resíduo
+B <- In - X %*% ginv(t(X) %*% X) %*% t(X)
+
+SQRes <- t(y) %*% B %*% y
+SQRes
+
+gl_res <- round(sum(diag(B %*% ginv(B))))
+gl_res
+
+QMRes <- SQRes / gl_res
+QMRes
+```
+
+Com os quadrados médios de tratamento (`QMTrat`) e dos resíduos (`QMRes`), calculamos a estatística F, bem como o p-valor.
+
+```{r}
+Fcalc <- QMTrat / QMRes
+Fcalc
+
+ftab <- qf(0.95, gl_trat, gl_res)
+ftab
+
+p_valor <- 1 - pf(Fcalc, gl_trat, gl_res)
+p_valor
+```
+
+A seguir, os resultado estão descritos no quadro de ANOVA:
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "FV" = c("Tratamento", "Resíduo", "Total"),
+  "gl" = c(gl_trat, gl_res, gl_total),
+  "SQ" = c(SQTrat, SQRes, SQTotal) |> round(3),
+  "QM" = c(QMTrat, QMRes, NA) |> round(3),
+  "Fcal" = c(Fcalc, NA, NA) |> round(3),
+  "Ftab" = c(ftab, NA, NA) |> round(3),
+  "p.valor" = c(p_valor, NA, NA) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "ANOVA para os dados de ácido ascórbico. H0: mi1 = mi2 = mi3",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que $F_{cal} > F_{tab}$, para $F_{(0,05;2;18)}$, rejeita-se a hipótese $H_0: \mu_1 = \mu_2 = \mu_3$, indicando que as médias de pelo menos dois métodos de congelamento diferem entre si.
+
+### SAS
+
+```{r}
+#| eval: false
+
+T = I(kn)-(1/kn)*J(kn,kn,1);	* Matriz núcleo;
+SQTotal = t(y)*T*y;				* Calcula SQTotal corrigida pela média;
+gl_total = round(trace(T*ginv(T))); 
+
+A = X*ginv(t(X)*X)*t(X) -(1/kn)*J(kn,kn,1); 	* Matriz núcleo;
+SQTrat = t(y)*A*y;								* Calcula SQTrat;
+gl_trat = round(trace(A*ginv(A)));
+QMTrat = SQTrat/gl_trat;
+
+B = I(kn) - X*ginv(t(X)*X)*t(X);	* Matriz núcleo;
+SQRes = t(y)*B*y;					* Calcula SQResiduo;
+gl_res = round(trace(B*ginv(B)));
+QMRes = SQRes/gl_res;
+
+Fcalc = QMTrat/QMRes;
+p_valor = 1-cdf('F',Fcalc,gl_trat,gl_Res);
+
+print 'TABELA 12.3 - ANOVA para os dados de ácido ascórbico da Tabela 13.2',; 
+print 'Método ' gl_trat  SQTrat[format=12.4] QMTrat[format=12.4] Fcalc[format=10.4] p_valor[format=12.4],,
+      'Resíduo' gl_res   SQRes[format=12.4]  QMRes[format=12.4],,
+	  'Total  ' gl_total SQTotal[format=12.4];
+```
+:::
+
+##### Contrastes
+
+#### Caso 1: As linhas são linearmente independentes (l.i.) e ortogonais {.unnumbered}
+
+Considerando os **constrastes ortogonais** $2\mu_1 - \mu_2 - \mu_3$ e $\mu_2 - \mu_3$, podemos representá-los da seguinte maneira:
+
+$$
+\begin{align}
+H_{01} &:2\mu_1 - \mu_2 - \mu_3 = 2\alpha_1 - \alpha_2 - \alpha_3 = [0,2,-1,-1]\boldsymbol{\beta} = \mathbf{c'_1}\boldsymbol{\beta}\\
+H_{02} &:\mu_2 - \mu_3 = \alpha_2 - \alpha_3 = [0,0,1,-1]\boldsymbol{\beta} = \mathbf{c'_2}\boldsymbol{\beta}
+\end{align}
+$$
+
+As hipóteses $H_{01}: \mathbf{c'_1}\boldsymbol{\beta} = 0$ e $H_{02}: \mathbf{c'_2}\boldsymbol{\beta} = 0$ comparam a média do primeiro tratamento com a dos outros dois e a média do segundo tratamento com a do terceiro, respectivamente.
+
+$$
+\begin{align}
+H_{01} &:\mathbf{c'_1}\boldsymbol{\beta} = 0 \Leftrightarrow \mu_1 = \frac{\mu_2 + \mu_3}2 \\
+H_{02} &: \mathbf{c'_2}\boldsymbol{\beta} = 0 \Leftrightarrow \mu_2 = \mu_3
+\end{align}
+$$
+
+::: panel-tabset
+### R
+
+```{r}
+C1 <- c(0, 2, -1, -1)
+C1Beta <- C1 %*% Beta
+C1Beta
+
+C2 <- c(0, 0, 1, -1)
+C2Beta <- C2 %*% Beta
+C2Beta
+```
+
+```{r}
+# Partição da SQTrat
+SQC1Beta <- t(C1Beta) %*% solve(t(C1) %*% ginv(t(X) %*% X) %*% C1) %*% (C1Beta)
+SQC1Beta
+
+SQC2Beta <- t(C2Beta) %*% solve(t(C2) %*% ginv(t(X) %*% X) %*% C2) %*% (C2Beta)
+SQC2Beta
+```
+
+```{r}
+SomaSQ <- SQC1Beta + SQC2Beta
+
+SQTrat
+```
+
+```{r}
+#| echo: false
+
+cat(
+  "Soma das SQ de contrastes ortogonais =", SomaSQ, "\n",
+  "SQTrat =", SQTrat
+  )
+```
+
+Aqui, note que a soma das somas de quadrados dos contrastes (`SomaSQ`) são iguais a soma de quadrados de tratamentos (`SQTrat`).
+
+```{r}
+# QM
+QMC1Beta <- SQC1Beta / 1
+QMC1Beta
+
+QMC2Beta <- SQC2Beta / 1
+QMC2Beta
+```
+
+```{r}
+# F e p-valor
+FC1 <- QMC1Beta / QMRes
+FC1
+
+FC2 <- QMC2Beta / QMRes
+FC2
+
+ftab <- qf(0.95, 1, 18)
+ftab
+
+p_valorC1 <- 1 - pf(FC1, 1, gl_res)
+p_valorC1
+
+p_valorC2 <- 1 - pf(FC2, 1, gl_res)
+p_valorC2
+```
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "FV" = c("Contraste c'1", "Contraste c'2", "Resíduo", "Total"),
+  "gl" = c(1, 1, gl_res, gl_total),
+  "SQ" = c(SQC1Beta, SQC2Beta, SQRes, SQTotal) |> round(3),
+  "QM" = c(QMC1Beta, QMC2Beta, QMRes, NA) |> round(3),
+  "Fcal" = c(FC1, FC2, NA, NA) |> round(3),
+  "Ftab" = c(ftab, ftab, NA, NA) |> round(3),
+  "p.valor" = c(p_valorC1, p_valorC2, NA, NA) |> round(5)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "ANOVA para contrastes ortogonais dos dados de ácido ascórbico",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Ambos os $F_{cal}$ são superiores ao valor tabelado $F_{(0,05;1,18)}$. Assim, ambas as hipóteses $H_{01}$ e $H_{02}$ são rejeitadas e se conclui que:
+
+$$
+\mu_1 \ne \frac{\mu_2 + \mu_3}2 \quad e \quad \mu_2 \ne \mu_3
+$$
+
+### SAS
+
+```{r}
+#| eval: false
+
+C1 ={0 2 -1 -1};
+C2 ={0 0  1 -1};
+C1Beta = C1*Beta;
+C2Beta = C2*Beta;
+SQC1Beta = t(C1*Beta)*inv(C1*ginv(t(X)*X)*t(C1))*C1*Beta;
+SQC2Beta = t(C2*Beta)*inv(C2*ginv(t(X)*X)*t(C2))*C2*Beta;
+Soma = SQC1Beta + SQC2Beta;
+print 'Partição da SQTrat usando k=2 contrastes l.i. e ortogonais',,
+      'SQcontraste1 = ' SQC1Beta[format=8.4],, 'SQcontraste2 = ' SQC2Beta[format=8.4],,
+      'Soma SQs     = ' Soma[format=8.4] '    SQTrat = ' SQTrat[format=8.4];
+```
+:::
+
+#### Caso 2: As linhas são l.i. e não ortogonais {.unnumbered}
+
+Agora, consideraremos os **constrastes não ortogonais** $2\mu_1 - \mu_2 - \mu_3$ e $\mu_1 - \mu_3$, podemos representá-los da seguinte maneira:
+
+$$
+\begin{align}
+2\mu_1 - \mu_2 - \mu_3 &= 2\alpha_1 - \alpha_2 - \alpha_3 = [0,2,-1,-1]\boldsymbol{\beta} = \mathbf{c'_1}\boldsymbol{\beta}\\
+\mu_1 - \mu_3 &= \alpha_1 - \alpha_3 = [0,1,0,-1]\boldsymbol{\beta} = \mathbf{c'_3}\boldsymbol{\beta}
+\end{align}
+$$
+
+As hipóteses $H_{01}: \mathbf{c'_1}\boldsymbol{\beta} = 0$ e $H_{03}: \mathbf{c'_3}\boldsymbol{\beta} = 0$ são:
+
+$$
+\begin{align}
+H_{01} &:\mathbf{c'_1}\boldsymbol{\beta} = 0 \Leftrightarrow \mu_1 = \frac{\mu_2 + \mu_3}2 \\
+H_{03} &: \mathbf{c'_3}\boldsymbol{\beta} = 0 \Leftrightarrow \mu_1 = \mu_3
+\end{align}
+$$
+
+::: panel-tabset
+### R
+
+```{r}
+C1 <- c(0, 2, -1, -1)
+C1Beta <- C1 %*% Beta
+C1Beta
+
+C3 <- c(0, 1, 0, -1)
+C3Beta <- C3 %*% Beta
+C3Beta
+```
+
+```{r}
+# Partição da SQTrat
+SQC1Beta <- t(C1Beta) %*% solve(t(C1) %*% ginv(t(X) %*% X) %*% C1) %*% (C1Beta)
+SQC1Beta
+
+SQC3Beta <- t(C3Beta) %*% solve(t(C3)%*% ginv(t(X) %*% X) %*% C3) %*% (C3Beta)
+SQC3Beta
+```
+
+```{r}
+SomaSQ <- SQC1Beta + SQC3Beta
+
+SQTrat
+```
+
+```{r}
+#| echo: false
+
+cat(
+  "Soma das SQ de contrastes não ortogonais =", SomaSQ, "\n",
+  "SQTrat =", SQTrat
+  )
+```
+
+Ao contrário do caso dos constrastes ortogonais, a soma das somas de quadrados dos **contrastes não ortogonais** (`SomaSQ`) não resulta na soma de quadrados dos tratamentos (`SQTrat`), o que prejudica a interpretação da análise de variância, dada a não independência entre os contrastes.
+
+### SAS
+
+```{r}
+#| eval: false
+
+C1 ={0  2 -1 -1};
+C2 ={0  1  0 -1};
+C1Beta = C1*Beta;
+C2Beta = C2*Beta;
+SQC1Beta = t(C1*Beta)*inv(C1*ginv(t(X)*X)*t(C1))*C1*Beta;
+SQC2Beta = t(C2*Beta)*inv(C2*ginv(t(X)*X)*t(C2))*C2*Beta;
+Soma = SQC1Beta + SQC2Beta;
+print 'Partição da SQTrat usando contrastes l.i. mas não ortogonais',,
+      'SQcontraste1 = ' SQC1Beta[format=8.4],, 'SQcontraste2 = 'SQC2Beta[format=8.4],,
+      'Soma SQs     = ' Soma[format=8.4] '    SQTrat = ' SQTrat[format=8.4];
+quit;
+```
+:::
