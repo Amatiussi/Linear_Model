@@ -4,6 +4,7 @@ Este repositório contém o material da disciplina `Modelos Lineares I` (2025), 
 
 ## Material
 Este material foi desenvolvido com Quarto e publicado como uma página HTML via GitHub Pages.
+
 👉[Link](https://amatiussi.github.io/Linear_Model/)
 
 ## Conteúdo 
