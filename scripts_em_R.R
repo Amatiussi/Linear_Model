@@ -1,7 +1,5 @@
 # Modelos Lineares - Exemplos R
-# Material complementar: <https://gustavojy.github.io/mod-lin-r/>
-
-# Pacotes utilizados ------------------------------------------------------
+# Pacotes utilizados
 
 install.packages("kableExtra")
 install.packages("plotly")
@@ -15,7 +13,7 @@ library(ggplot2)
 library(MASS)
 library(ExpDes.pt)
 
-# 1. Covariância, Correlação e Distância de Mahalanobis -------------------
+# 1. Covariância, Correlação e Distância de Mahalanobis 
 
 ## Vetores
 y1 <- c(72,60,56,41,32,30,39,42,37,33,32,63,54,47,91,56,79,81,78,46,39,32,60,35,39,50,43,48)
@@ -94,7 +92,7 @@ rank <- rank(DM2)
 data.frame(Y, DM2, rank)
 
 
-# 2. Gráfico Normal Bivariada ------------------------------------------------
+# 2. Gráfico Normal Bivariada
 
 ## Biblioteca
 
@@ -128,9 +126,9 @@ plot_ly(x = y1, y = y2, z = z, type = "surface") |>
 ## Link para aplicativo: <https://gustavojy.github.io/n-multi-graph-app/>.
 
 
-# 3. Normal Multivariada - Propriedades --------------------------------------
+# 3. Normal Multivariada - Propriedades 
 
-## Exemplo 1 (4.4(a))----
+## Exemplo 1 (4.4(a))
 
 mi <- c(3, 1, 2)
 mi
@@ -190,7 +188,7 @@ cov_12 <- t(a1) %*% Sigma %*% b2
 cov_12
 
 
-## Exemplo 2 (4.4(b))----
+## Exemplo 2 (4.4(b))
 
 ### Teorema 4 (4.4D.) {#sec-T4}
 
@@ -274,7 +272,7 @@ Sigma_yy
 cov_ydx
 
 
-# 4. Correlação Parcial ------------------------------------------------------
+# 4. Correlação Parcial 
 
 Sigma <- matrix(
   c(9, 0, 3, 3, 0, 1, -1, 2, 3, -1, 6, -3, 3, 2, -3, 7), 
@@ -323,7 +321,7 @@ Ro_ydx
 
 
 
-# 5. Regressão Linear Simples -----------------------------------------------
+# 5. Regressão Linear Simples 
 
 ## Vetores
 y <- c(95,80,0,0,79,77,72,66,98,90,0,95,35,50,72,55,75,66)
@@ -488,7 +486,7 @@ p_valor
 modelo <- lm(y ~ x1)
 summary(modelo)
 
-# 6. Regressão Linear Múltipla - Estimação ----------------------------------
+# 6. Regressão Linear Múltipla - Estimação 
 
 ## Dados
 y <- c(2, 3, 2, 7, 6, 8, 10, 7, 8, 12, 11, 14)
@@ -645,7 +643,7 @@ data.frame(
 
 
 
-# 7.1 Regressão Linear Múltipla - Teste Hip ------------------------------
+# 7.1 Regressão Linear Múltipla - Teste Hip 
 
 ## Dados
 
@@ -799,7 +797,7 @@ p_valor3
 
 
 
-# 7.2 Regressão Linear Múltipla - Teste Hip -------------------------------
+# 7.2 Regressão Linear Múltipla - Teste Hip 
 
 ## Dados
 
@@ -1014,7 +1012,7 @@ tabela_resultados
 
 
 
-# 7.3 Regressão Linear Múltipla - Teste Hip -------------------------------
+# 7.3 Regressão Linear Múltipla - Teste Hip 
 
 ## Dados
 y1 <- c(41.5,33.8,27.7,21.7,19.9,15.0,12.2,4.3,19.3,6.4,37.6,18.0,26.3,9.9,25.0,14.1,15.2,15.9,19.6)
@@ -1157,7 +1155,7 @@ SQHip2
 
 
 
-# 7.4 Regressão Linear Múltipla - Métodos Bonferroni e Scheffé ------------
+# 7.4 Regressão Linear Múltipla - Métodos Bonferroni e Scheffé
 
 y <- c(2,3,2,7,6,8,10,7,8,12,11,14)
 
@@ -1236,12 +1234,9 @@ t_Bon
 t_Scheffe <- sqrt((k + 1) %*% qf(0.95, k + 1, n - k - 1)) |> as.numeric() # calcula t-tabelado para Método de Scheffé
 t_Scheffe
 
+# 8. Modelos de Análise de Variância (ANOVA) 
 
-
-
-# 8. Modelos de Análise de Variância (ANOVA) ------------------------------
-
-## 8.1 ANOVA balanceada com um fator - Estimação --------------------------
+## 8.1 ANOVA balanceada com um fator - Estimação
 
 y <- as.vector(c(14,16,15,18,19,17))
 y
@@ -1378,7 +1373,7 @@ L2Beta3 <- L2 %*% Beta3
 L2Beta3
 
 
-## 8.2 ANOVA balanceada com um fator - Teste de Hipótese ------------------
+## 8.2 ANOVA balanceada com um fator - Teste de Hipótese
 
 library(MASS)     # função ginv()
 
@@ -1583,9 +1578,7 @@ SomaSQ
 
 SQTrat
 
-
-
-## 8.3 ANOVA balanceada com dois fatores ----------------------------------
+## 8.3 ANOVA balanceada com dois fatores 
 
 library(MASS)     # função ginv()
 
@@ -1883,7 +1876,7 @@ SQ_A_R
 
 
 
-## 8.4 ANOVA desbalanceada com um fator -----------------------------------
+## 8.4 ANOVA desbalanceada com um fator 
 
 library(MASS)     # função ginv()
 
@@ -2027,7 +2020,7 @@ p_valor_a2p
 
 
 
-## 8.5 ANOVA desbalanceada com dois fatores (Girassol) ---------------------
+## 8.5 ANOVA desbalanceada com dois fatores (Girassol) 
 
 library(MASS)
 
