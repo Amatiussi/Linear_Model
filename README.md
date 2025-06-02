@@ -15,9 +15,9 @@ O material abrange desde conceitos básicos de álgebra matricial aplicada à es
 ### 3. Capítulo 6 - Regressão Linear Simples
 ### 4. Capítulo 7 e 8 - Regressão Linear Múltipla
 ### 5. Modelos de Análise de Variância (ANOVA)
-#### Capítulo 13 - ANOVA com um fator: Caso Balanceado
-#### Capítulo 14 - ANOVA com dois fatores: Caso Balanceado
-#### Capítulo 15 - ANOVA para dados desbalanceados (com um e dois fatores)
+- Capítulo 13 - ANOVA com um fator: Caso Balanceado
+- Capítulo 14 - ANOVA com dois fatores: Caso Balanceado
+- Capítulo 15 - ANOVA para dados desbalanceados (com um e dois fatores)
 
 ## Referência Bibliográfica
 A disciplina é baseada no livro:
