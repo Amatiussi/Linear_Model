@@ -1,6 +1,6 @@
 ---
-title: "Conversão de scripts em SAS para R com base nos exemplos apresentados em aula"
-subtitle: "Modelos Lineares I"
+title: "Modelos Lineares I: Exercícios resolvidos em R e SAS"
+subtitle: "Baseados nos capítulos do livro: Linear Models in Statistics (Rencher e Schaalje, 2008)"
 format:
   html:
     output-dir: docs
@@ -16,6 +16,10 @@ format:
       gutter-width: 1.5em
 editor: visual
 ---
+
+Este material faz parte da disciplina "**Modelos Lineares I**" (2025), ministrada pelo Prof. Dr. César Gonçalves de Lima na ESALQ/USP, como parte do Programa de Pós-Graduação em Estatística e Experimentação Agronômica. O objetivo deste material é disponibilizar os scripts e exercícios utilizados nas aulas, originalmente desenvolvidos em SAS, convertidos para a linguagem de programação R.
+
+O material abrange desde conceitos básicos de álgebra matricial aplicada à estatística multivariada, até modelos de regressão simples e múltipla, culminando com modelos de análise de variância, tanto balanceados quanto desbalanceados.
 
 # Capítulos 1 a 3 - Covariância, Correlação e Distância de Mahalanobis
 
@@ -5365,7 +5369,7 @@ quit;
 ```
 :::
 
-### **Teste de Hipótese**
+### Teste de Hipótese
 
 ```{r}
 #| echo: false
@@ -5939,5 +5943,2425 @@ print 'Partição da SQTrat usando contrastes l.i. mas não ortogonais',,
       'SQcontraste1 = ' SQC1Beta[format=8.4],, 'SQcontraste2 = 'SQC2Beta[format=8.4],,
       'Soma SQs     = ' Soma[format=8.4] '    SQTrat = ' SQTrat[format=8.4];
 quit;
+```
+:::
+
+## Capítulo 14 - ANOVA com dois fatores: Caso Balanceado
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+options(scipen = 999999, knitr.kable.NA = '')
+
+library(MASS)
+```
+
+### Introdução
+
+Nesta seção, será apresentada a análise de variância de modelos **balanceados** com **dois fatores de tratamento** (*two-way* ANOVA). Seu modelo pode ser representado como:
+
+$$
+\begin{align}
+y_{ijk} &= \mu + \alpha_i + \beta_j + \gamma_{ij} + \epsilon_{ijk} \\
+i = 1,2,\dots,a & \quad\quad j = 1,2,\dots,b \quad\quad k = 1,2,\dots,n
+\end{align}
+$$
+
+-   $\alpha_i$ é o efeito do $i$-ésimo nível do fator $A$;
+
+-   $\beta_j$ é o efeito do $j$-ésimo nível do fator $B$;
+
+-   $\gamma_{ij}$ é o efeito da interação entre o $i$-ésimo nível do fator $A$ e o $j$-ésimo nível do fator $B$.
+
+Como suposições, assumiremos:
+
+-   $E(\epsilon_{ijk}) = 0$ para todo $i,j,k$;
+
+-   $var(\epsilon_{ijk}) = \sigma^2$ para todo $i,j,k$;
+
+-   $cov(\epsilon_{ijk}, \epsilon_{i'j'k'}) = 0$ para todo $(i,j,k) \ne (i',j',k')$;
+
+-   $\epsilon_{ijk} \sim N(0, \sigma^2)$ para todo $i,j,k$.
+
+Dessa maneira, podemos reescrever o modelo balanceado na **forma reparametrizada**, conhecido como **modelo de médias de caselas**:
+
+$$
+\begin{align}
+y_{ijk} &= \mu_{ij} + \epsilon_{ijk} \\
+i = 1,2,\dots,a \quad\quad j &= 1,2,\dots,b \quad\quad k = 1,2,\dots,n
+\end{align}
+$$
+
+Em que $\mu_{ij} = E(y_{ijk})$ é a média de uma observação $k$ na casela $(ij)$.
+
+Para ilustrar, considere o seguinte exemplo: *O conteúdo da mistura de três tipos de queijo produzidos por dois métodos foi anotado por Marcuse (1949) (formato alterado). Duas peças de queijo foram medidas para cada tipo e cada método. Designando Método como o fator A e Tipo como o fator B, então a = 2, b = 3 e n = 2.*
+
+| Método \\ Tipo |   1   |   2   |   3   |
+|:--------------:|:-----:|:-----:|:-----:|
+|       1        | 39,02 | 35,74 | 37,02 |
+|       1        | 38,79 | 35,41 | 36,00 |
+|       2        | 38,96 | 35,58 | 35,70 |
+|       2        | 39,01 | 35,52 | 36,04 |
+
+-   **Fator A (Tratamento A)**: Método de produção de queijo, com 2 níveis (`a = 2`);
+
+-   **Fator B (Tratamento B)**: Tipo de queijo, com 3 níveis (`b = 3`);
+
+-   **Repetições**: 2 repetições por tratamento (caso balanceado).
+
+Novamente, utilizaremos a função `ginv()` do pacote `MASS`.
+
+```{r}
+#| eval: false
+
+install.packages("MASS")
+library(MASS)
+```
+
+### Estimação dos parâmetros
+
+::: panel-tabset
+### R
+
+```{r}
+y <- c(39.02, 38.79, 35.74, 35.41, 37.02, 36.00, 38.96, 39.01, 35.58, 35.52, 35.70, 36.04)
+y
+
+X <- matrix(c(
+  1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0,
+  1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0,
+  1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0,
+  1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0,
+  1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0,
+  1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0,
+  1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0,
+  1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0,
+  1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0,
+  1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0,
+  1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1,
+  1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1
+), 
+nrow = 12, byrow = TRUE)
+X
+```
+
+O modelo matricial $\mathbf{y} = \mathbf{X} \boldsymbol{\beta} + \boldsymbol{\epsilon}$ é dado por:
+
+$$
+\begin{cases}
+y_{111} = \mu + \alpha_1 + \beta_1 + \gamma_{11}\\ 
+y_{112} = \mu + \alpha_1 + \beta_1 + \gamma_{11}\\ 
+y_{121} = \mu + \alpha_1 + \beta_2 + \gamma_{12}\\ 
+y_{122} = \mu + \alpha_1 + \beta_2 + \gamma_{12}\\ 
+y_{131} = \mu + \alpha_1 + \beta_3 + \gamma_{21}\\ 
+y_{132} = \mu + \alpha_1 + \beta_3 + \gamma_{21}\\ 
+y_{211} = \mu + \alpha_2 + \beta_1 + \gamma_{22}\\ 
+y_{212} = \mu + \alpha_2 + \beta_1 + \gamma_{22}\\ 
+y_{221} = \mu + \alpha_2 + \beta_2 + \gamma_{31}\\ 
+y_{222} = \mu + \alpha_2 + \beta_2 + \gamma_{31}\\ 
+y_{231} = \mu + \alpha_2 + \beta_3 + \gamma_{32}\\ 
+y_{232} = \mu + \alpha_2 + \beta_3 + \gamma_{32}
+\end{cases}
+$$
+
+$$
+\begin{bmatrix}
+y_{111} \\ y_{112} \\ y_{121} \\ y_{122} \\ y_{131} \\ y_{132} \\ y_{211} \\ y_{212} \\ y_{221} \\ y_{222} \\ y_{231} \\ y_{232}
+\end{bmatrix}
+=
+\begin{bmatrix}
+39,02 \\ 38,79 \\ 35,74 \\ 35,41 \\ 37,02 \\ 36,00 \\ 38,96 \\ 39,01 \\ 35,58 \\ 35,52 \\ 35,70 \\ 36,04
+\end{bmatrix}
+=
+\begin{bmatrix}
+1 & 1 & 0 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
+1 & 1 & 0 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
+1 & 1 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\
+1 & 1 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\
+1 & 1 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & 0 & 0 \\
+1 & 1 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & 0 & 0 \\
+1 & 0 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\
+1 & 0 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\
+1 & 0 & 1 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 1 & 0 \\
+1 & 0 & 1 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 1 & 0 \\
+1 & 0 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 1 \\
+1 & 0 & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 1
+\end{bmatrix}
+\begin{bmatrix}
+\mu \\ \alpha_1 \\ \alpha_2 \\ \beta_1 \\ \beta_2 \\ \beta_3 \\ \gamma_{11} \\ \gamma_{12} \\ \gamma_{21} \\ \gamma_{22} \\ \gamma_{31} \\ \gamma_{32}
+\end{bmatrix}
++
+\begin{bmatrix}
+\epsilon_{111} \\ \epsilon_{112} \\ \epsilon_{121} \\ \epsilon_{122} \\ \epsilon_{131} \\ \epsilon_{132} \\ \epsilon_{211} \\ \epsilon_{212} \\ \epsilon_{221} \\ \epsilon_{222} \\ \epsilon_{231} \\ \epsilon_{232}
+\end{bmatrix}
+$$
+
+Nota-se que o modelo apresenta 12 parâmetros e o posto($\mathbf{X}$) = 6, ou seja, a matriz $\mathbf{X}$ é de posto incompleto.
+
+```{r}
+npar <- ncol(X)                      # número de parâmetros
+npar
+
+rank_X <- sum(diag(ginv(X) %*% X))   # posto de X
+rank_X
+
+deficit_rank <- npar - rank_X        # déficit de rank
+deficit_rank
+```
+
+```{r}
+a <- 2    # níveis do fator A
+b <- 3    # níveis do fator B
+n <- 2    # número de repeticões
+
+abn <- a * b * n    # número total de observacões
+abn
+```
+
+Para visualizar as submatrizes da matriz $\mathbf{X}$ respectivas à constante $\mu$, ao parâmetro do fator A ($\alpha_i$), ao parâmetro do fator B ($\beta_j$) e ao de interação entre os fatores ($\gamma_{ij}$), procedemos da seguinte maneira:
+
+```{r}
+X0 <- X[, 1]        # constante
+X0
+
+XA <- X[, 2:3]      # fator A
+XA
+
+XB <- X[, 4:6]      # fator B
+XB
+
+XAB <- X[, 7:12]    # combinacão dos níveis dos dois fatores
+XAB
+```
+
+A seguir, estimaremos o vetor de parâmetros $\boldsymbol{\beta}$ usando duas inversas generalizadas diferentes.
+
+$$
+\hat{\boldsymbol{\beta}} = \mathbf{(X'X)^- X'y}
+$$
+
+-   Inversa generalizada de Moore-Penrose:
+
+```{r}
+Beta <- ginv(t(X) %*% X) %*% t(X) %*% y
+Beta
+```
+
+-   Inversa generalizada simples (Searle):
+
+```{r}
+XLX <- t(X) %*% X
+XLX
+
+iXLX <- (1 / 2) * kronecker(
+  matrix(c(0,0,0,1), byrow = TRUE, ncol = 2), diag(6)
+)
+fractions(iXLX)
+
+Betag <- iXLX %*% t(X) %*% y
+Betag
+```
+
+A tabela abaixo traz as duas estimativas de $\boldsymbol{\beta}$ calculadas anteriormente.
+
+```{r}
+#| echo: false
+
+data.frame(
+  params <- c("$\\hat{\\mu}$", "$\\hat{\\alpha_1}$", "$\\hat{\\alpha_2}$", "$\\hat{\\beta_1}$", "$\\hat{\\beta_2}$", "$\\hat{\\beta_3}$", "$\\hat{\\gamma_{11}}$", "$\\hat{\\gamma_{12}}$", "$\\hat{\\gamma_{21}}$", "$\\hat{\\gamma_{22}}$", "$\\hat{\\gamma_{31}}$", "$\\hat{\\gamma_{32}}$"),
+  beta_mp = Beta |> round(4),
+  beta_g = Betag |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c", 
+    col.names = c("Parâmetros", "Beta MP", "Beta Simples"), 
+    format = "html",
+    escape = FALSE,
+    booktabs = TRUE
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+proc iml;
+reset fuzz;
+y = {39.02,38.79,35.74,35.41,37.02,36.00,38.96,39.01,35.58,35.52,35.70,36.04};
+X = {1 1 0 1 0 0 1 0 0 0 0 0,
+	 1 1 0 1 0 0 1 0 0 0 0 0,
+	 1 1 0 0 1 0 0 1 0 0 0 0,
+	 1 1 0 0 1 0 0 1 0 0 0 0,
+	 1 1 0 0 0 1 0 0 1 0 0 0,
+	 1 1 0 0 0 1 0 0 1 0 0 0,
+	 1 0 1 1 0 0 0 0 0 1 0 0,
+	 1 0 1 1 0 0 0 0 0 1 0 0,
+	 1 0 1 0 1 0 0 0 0 0 1 0,
+	 1 0 1 0 1 0 0 0 0 0 1 0,
+	 1 0 1 0 0 1 0 0 0 0 0 1,
+	 1 0 1 0 0 1 0 0 0 0 0 1};
+print X[format=4.0] y[format=12.2];
+
+rank_X = round(trace(ginv(X)*X)); 	* Calcula o posto da matriz X;
+npar = ncol(X);
+a=2; 	* Número de níveis do fator A;
+b=3;	* Número de níveis do fator B;
+n=2;	* Número de repetições;
+abn = a*b*n;	* Número total de observações;
+X0 = X[,1];
+XA = X[,2:3];
+XB = X[,4:6];
+XAB = X[,7:12];
+print X[format=8.0],,XA[format=8.0],,XB[format=8.0],,XAB[format=8.0];
+* ----------------------------------------------------------------------------;
+
+* Estima Beta usando inversa de Moore-Penrose;
+BetaMP = ginv(t(X)*X)*t(X)*y;		* Beta usando invG (Moore Penrose));
+XLX = t(X)*X;
+iXLX = (1/2)*{0 0, 0 1}@I(6);		
+BetaG = iXLX*t(X)*y;				* Beta usando invG mais simples (Searle);
+
+print BetaMP BetaG;
+
+* ----------------------------------------------------------------------------;
+```
+:::
+
+### Teste de hipótese {#sec-fatorial-th}
+
+O primeiro teste que realizamos em ANOVA com dois fatores é o **teste de interação** entre os fatores A e B, cuja hipótese é:
+
+$$
+\begin{align}
+H_0 &: \text{Não há efeito da interação entre os fatores A e B} \\
+H_1 &: \text{Há efeito da interação entre os fatores A e B}
+\end{align}
+$$
+
+Caso a hipótese de **interação** entre os fatores seja **não significativa** (não se rejeita $H_0$), ou seja, os fatores são **independentes**, devemos analisar os **efeitos principais** dos fatores A e B, presentes no mesmo quadro de ANOVA construído para avaliar a interação. Assim, as hipóteses para os fatores A e B são dadas por:
+
+$$
+\begin{align}
+H_0 &: \text{Não há efeito do fator A} \\
+H_1 &: \text{Há efeito do fator A para algum dos níveis de A}
+\end{align}
+$$
+
+$$
+\begin{align}
+H_0 &: \text{Não há efeito do fator B} \\
+H_1 &: \text{Há efeito do fator B para algum dos níveis de B}
+\end{align}
+$$
+
+Por outro lado, caso a hipótese de **interação** entre os fatores seja **significativa** (rejeita-se $H_0: \text{Não há efeito da interação entre os fatores A e B}$), devemos avaliar os **efeitos simples** de cada fator, ou seja, avaliar o efeito do fator A dentro de cada nível do fator B e/ou o efeito do fator B dentro de cada nível do fator A. Para isso, devemos realizar uma segunda ANOVA.
+
+A seguir, demonstraremos um teste de hipótese em que a **interação não é significativa**, a partir das abordagens de **modelo completo x modelo reduzido** e **hipótese linear geral**.
+
+#### Modelo Completo x Modelo Reduzido
+
+::: panel-tabset
+### R
+
+Novamente, utilizaremos as seguintes formas quadráticas para calcular a soma de quadrados total (`SQTotal`) e a soma de quadrados dos resíduos (`SQRes`).
+
+$$
+SQTotal = \mathbf{y'} \left(\mathbf{I} - \frac{1}n \mathbf{J}\right) \mathbf{y}
+$$
+
+$$
+SQRes = \mathbf{y'} \left[\mathbf{I} - \mathbf{X(X'X)^-X'}\right] \mathbf{y}
+$$
+
+```{r}
+In <- diag(abn)
+Jn <- matrix(1, nrow = abn, ncol = abn)
+```
+
+```{r}
+# Total
+Tot <- In - (1 / abn) * Jn
+
+SQTotal <- t(y) %*% Tot %*% y
+SQTotal
+
+gl_total <- round(sum(diag(Tot %*% ginv(Tot))))
+gl_total
+```
+
+```{r}
+# Resíduo
+PR <- In - X %*% ginv(t(X) %*% X) %*% t(X)
+
+SQRes <- t(y) %*% PR %*% y
+SQRes
+
+gl_res <- round(sum(diag(PR %*% ginv(PR))))
+gl_res
+
+QMRes <- SQRes / gl_res
+QMRes
+```
+
+Para calcular a soma de quadrados da interação entre os fatores A e B, utilizamos a seguinte forma quadrática:
+
+$$
+SQ_{A\times B} = \mathbf{y'} [\boldsymbol{X(X'X)^-X' - Z(X'X)^-Z'}] \mathbf{y}
+$$
+
+onde $\mathbf{Z}$ é a submatriz da matriz de delineamento $\mathbf{X}$ respectiva à constante $\mu$, ao parâmetro do fator A ($\alpha_i$, $i = 1,2$) e ao parâmetro do fator B ($\beta_j$, $j = 1,2,3$).
+
+```{r}
+# Interação AxB
+X1 <- cbind(X0, XA, XB)
+X1
+
+PAB <- X %*% ginv(t(X) %*% X) %*% t(X) - X1 %*% ginv(t(X1) %*% X1) %*% t(X1)
+
+SQAB <- t(y) %*% PAB %*% y
+SQAB
+
+glAB <- round(sum(diag(ginv(PAB) %*% PAB)))
+glAB
+
+QMAB <- SQAB / glAB
+QMAB
+
+FAB <- QMAB / QMRes
+FAB
+
+ftabAB <- qf(0.95, glAB, gl_res)
+ftabAB
+
+p_valorAB <- 1 - pf(FAB, glAB, gl_res)
+p_valorAB
+```
+
+A soma de quadrados do efeito principal do fator A é dado por:
+
+$$
+SQ_A = \mathbf{y'} \left[\boldsymbol{A(A'A)^-A'} - \frac{\mathbf{J}}n \right] \mathbf{y}
+$$
+
+onde $\mathbf{A}$ é a submatriz da matriz de delineamento $\mathbf{X}$ respectiva ao parâmetro do fator A ($\alpha_i$, $i = 1,2$).
+
+```{r}
+# Fator A
+PA <- XA %*% ginv(t(XA) %*% XA) %*% t(XA) - Jn/abn
+
+SQA <- t(y) %*% PA %*% y
+SQA
+
+glA <- round(sum(diag(ginv(PA) %*% PA)))
+glA
+
+QMA <- SQA / glA
+QMA
+
+FA <- QMA / QMRes
+FA
+
+ftabA <- qf(0.95, glA, gl_res)
+ftabA
+
+p_valorA <- 1 - pf(FA, glA, gl_res)
+p_valorA
+```
+
+De modo análogo, soma de quadrados do efeito principal do fator B é dado por:
+
+$$
+SQ_B = \mathbf{y'} \left[\boldsymbol{B(B'B)^-B'} - \frac{\mathbf{J}}n \right] \mathbf{y}
+$$
+
+onde $\mathbf{A}$ é a submatriz da matriz de delineamento $\mathbf{X}$ respectiva ao parâmetro do fator A ($\alpha_i$, $i = 1,2$).
+
+```{r}
+# Fator B
+PB <- XB %*% ginv(t(XB) %*% XB) %*% t(XB) - Jn/abn
+
+SQB <- t(y) %*% PB %*% y
+SQB
+
+glB <- round(sum(diag(ginv(PB) %*% PB)))
+glB
+
+QMB <- SQB / glB
+QMB
+
+FB <- QMB / QMRes
+FB
+
+ftabB <- qf(0.95, glB, gl_res)
+ftabB
+
+p_valorB <- 1 - pf(FB, glB, gl_res)
+p_valorB
+```
+
+Os resultados do teste de interação e de efeitos principais estão descritos no quadro de ANOVA a seguir.
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "FV" = c("Método (A)", "Tipo (B)", "Interação (AxB)", "Resíduo", "Total"),
+  "gl" = c(glA, glB, glAB, gl_res, gl_total),
+  "SQ" = c(SQA, SQB, SQAB, SQRes, SQTotal) |> round(3),
+  "QM" = c(QMA, QMB, QMAB, QMRes, NA) |> round(3),
+  "Fcal" = c(FA, FB, FAB, NA, NA) |> round(3),
+  "Ftab" = c(ftabA, ftabB, ftabAB, NA, NA) |> round(3),
+  "p.valor" = c(p_valorA, p_valorB, p_valorAB, NA, NA) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "ANOVA: Fatorial 2x3 (caso balanceado) - Interação e efeitos principais",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que o $F_{cal} < F_{tab}$ para a **interação**, considerando $F_{(0,05;2;6)}$, a interação não foi significativa, logo **não se rejeita** $H_0: \text{Não há efeito da interação entre os fatores A e B}$. Dessa forma, os fatores A e B podem ser considerados independentes, sem efeito de interação.
+
+Visto que não há interação entre os fatores, podemos analisar os **efeitos principais** de cada um dos fatores. No caso do fator A (Método), também não se observou significância estatística para o efeito do método na fabricação de queijo. Dessa forma, não se rejeita $H_0: \text{Não há efeito do fator A}$. Por outro lado, o fator B (Tipo) foi significativo, assim, rejeita-se $H_0: \text{Não há efeito do fator B}$, permitindo dizer que entre, pelo menos, dois tipos de queijo há diferenças no processo de fabricação.
+
+### SAS
+
+```{r}
+#| eval: false
+
+* Cálculo da soma de quadrados total - SQTotal;
+P = I(abn) - J(abn,abn,1)/abn;
+SQTotal = t(y)*(P)*y;
+glTotal = round(trace(ginv(P)*P));
+
+* Cálculo da soma de quadrados de resíduos - SQRes;
+PR = I(abn) - X*ginv(t(X)*X)*t(X);
+SQRes = t(y)*(PR)*y;
+glRes = round(trace(ginv(PR)*PR));
+QMRes = SQRes/glRes;
+
+* Cálculo SQAxB - forma quadrática;
+X1 = X0||XA||XB;
+PAB = X*ginv(t(X)*X)*t(X) - X1*ginv(t(X1)*X1)*t(X1);
+SQAB = t(y)*PAB*y; 					* Calcula SQ(AB);
+glAB = round(trace(ginv(PAB)*PAB)); * Calcula gl da interação AxB;
+QMAB = SQAB/glAB;
+FAB = QMAB/QMRes;
+p_valorAB = 1-cdf('F',FAB,glAB,glRes);
+
+* Cálculo da soma de quadrados do fator A - SQ(A);
+PA = XA*ginv(t(XA)*XA)*t(XA) - J(abn,abn,1)/abn;
+SQA = t(y)*PA*y;
+glA = round(trace(ginv(PA)*PA));
+QMA = SQA/glA;
+FA = QMA/QMRes;
+p_valorA = 1-cdf('F',FA,glA,glRes);
+
+* Cálculo da soma de quadrados do fator B - SQ(B);
+PB = XB*ginv(t(XB)*XB)*t(XB) - J(abn,abn,1)/abn;
+SQB = t(y)*PB*y;
+glB = round(trace(ginv(PB)*PB));
+QMB = SQB/glB;
+FB = QMB/QMRes;
+p_valorB = 1-cdf('F',FB,glB,glRes);
+
+* Imprime o quadro de análise de variância – ANOVA (pág. 252);
+print 'QUADRO DE ANOVA: Exemplo 14.4.2: Fatorial 2x3 (caso balanceado)';
+print 'Método    ' glA[format=8.0]     SQA[format=12.4]   QMA[format=12.4]  FA[format=12.4]  p_valorA[format=12.4];
+print 'Tipo      ' glB[format=8.0]     SQB[format=12.4]   QMB[format=12.4]  FB[format=12.4]  p_valorB[format=12.4];
+print 'Interação ' glAB[format=8.0]    SQAB[format=12.4]  QMAB[format=12.4] FAB[format=12.4] p_valorAB[format=12.4];
+print 'Resíduo   ' glRes[format=8.0]   SQRes[format=12.4] QMRes[format=12.4];
+print 'Total     ' glTotal[format=8.0] SQTotal[format=12.4] ;
+```
+:::
+
+#### Hipótese Linear Geral
+
+Também podemos calcular as somas de quadrados utilizando a abordagem da **hipótese linear geral**. A soma de quadrados obtida a partir desta abordagem é dada por:
+
+$$
+SQ_{Hip} = (\boldsymbol{C\hat{\beta}})' \left[\mathbf{C(X'X)^-C'}\right]^{-1} (\boldsymbol{C\hat{\beta}})
+$$
+
+onde $\mathbf{C}$ é a matriz de coeficientes que reproduz, matricialmente, a hipótese de interesse.
+
+::: panel-tabset
+### R
+
+```{r}
+CAxB <- matrix(
+  c(0, 0, 0, 0, 0, 0, 1, -1, 0, -1, 1, 0,
+    0, 0, 0, 0, 0, 0, 1, 0, -1, -1, 0, 1), nrow = 2, byrow = TRUE
+)
+CAxB
+
+SQ_CAxB <- t(CAxB %*% Beta) %*% solve(CAxB %*% ginv(t(X) %*% X) %*% t(CAxB)) %*% (CAxB %*% Beta)
+SQ_CAxB
+```
+
+```{r}
+CA <- 
+  (1/3) * matrix(
+    c(0, 3, -3, 0, 0, 0, 1, 1, 1, -1, -1, -1), nrow = 1, byrow = TRUE
+  )
+fractions(CA)
+
+SQ_CA <- t(CA %*% Beta) %*% solve(CA %*% ginv(t(X) %*% X) %*% t(CA)) %*% (CA %*% Beta)
+SQ_CA
+```
+
+```{r}
+CB <- 
+  (1/2) * matrix(
+    c(0, 0, 0, 2, -2, 0, 1, -1, 0, 1, -1, 0,
+      0, 0, 0, 2, 0, -2, 1, 0, -1, 1, 0, -1), nrow = 2, byrow = TRUE
+  )
+fractions(CB)
+
+SQ_CB <- t(CB %*% Beta) %*% solve(CB %*% ginv(t(X) %*% X) %*% t(CB)) %*% (CB %*% Beta)
+SQ_CB
+```
+
+Note que as somas de quadrados obtidas a partir da hipótese linear geral são iguais às obtidas pelo método do modelo completo x modelo reduzido.
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  metodo = c("Completo x Reduzido", "Hip.Lin.Geral"),
+  SQ_A = c(SQA, SQ_CA),
+  SQ_B = c(SQB, SQ_CB),
+  SQ_AxB = c(SQAB, SQ_CAxB)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "Somas de quadrados entre as abordagens de Modelo completo x reduzido e Hipótese linear geral",
+    col.names = c("Método", "SQ A", "SQ B", "SQ AxB")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+* ----------------------------------------------;
+* Cálculo das SQ usando Hipótese Linear Geral;
+* ----------------------------------------------;
+
+*            mi a1 a2 b1 b2 b3 g11 g12 g13 g21 g22 g23;      
+CA   = (1/3)*{0  3 -3  0  0  0   1   1   1  -1  -1  -1};
+
+CB   = (1/2)*{0  0  0  2 -2  0   1  -1   0   1  -1   0,
+              0  0  0  2  0 -2   1   0  -1   1   0  -1};
+
+CAxB =       {0  0  0  0  0  0   1  -1   0  -1   1   0,
+              0  0  0  0  0  0   1   0  -1  -1   0   1}; 
+
+SQ_CA = t(CA*Beta)*inv(CA*ginv(t(X)*X)*t(CA))*CA*Beta;
+SQ_CB = t(CB*Beta)*inv(CB*ginv(t(X)*X)*t(CB))*CB*Beta;
+SQ_CAxB = t(CAxB*Beta)*inv(CAxB*ginv(t(X)*X)*t(CAxB))*CAxB*Beta;
+
+print 'Somas de quadrados usando Hipótese Linear Geral:',,
+    SQ_CA[format=12.4] SQ_CB[format=12.4] SQ_CAxB[format=12.4];
+```
+:::
+
+### Estimabilidade no modelo superparametrizado
+
+#### Sem restrições nos parâmetros
+
+Verificaremos se funções são estimáveis no modelo superparametrizado **sem** restrições nos parâmetros.
+
+::: panel-tabset
+### R
+
+Neste primeiro caso, utilizaremos a abordagem de que se
+
+$$
+(\mathbf{X'X})(\mathbf{X'X})^-\boldsymbol{\lambda} = \boldsymbol{\lambda}
+$$
+
+a função é estimável.
+
+-   $\beta = \alpha_1 - \alpha_2$:
+
+```{r}
+L1 <- matrix(c(0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0), ncol = 1)
+L1
+
+ver <- t(X) %*% X %*% ginv(t(X) %*% X)
+
+verL1 <- ver %*% L1 |> round(2)
+verL1
+
+L1Beta <- t(L1) %*% Beta
+L1Beta
+```
+
+Verifica-se que $\beta = \alpha_1 - \alpha_2$ **não é estimável** no modelo sem restrição nos parâmetros.
+
+-   $\beta = \alpha_1 - \alpha_2 + (\frac{1}3(\gamma_{11} + \gamma_{12} + \gamma_{13}) - (\frac{1}3)(\gamma_{21} = \gamma_{22} + \gamma_{23})$:
+
+```{r}
+L2 <- (1/3) * t(matrix(c(0, 3, -3, 0, 0, 0, 1, 1, 1, -1, -1, -1), nrow = 1))
+round(L2, 2)
+
+ver <- t(X) %*% X %*% ginv(t(X) %*% X)
+
+verL2 <- ver %*% L2 |> round(2)
+verL2
+
+L2Beta <- t(L2) %*% Beta
+L2Beta
+```
+
+Verifica-se que $\beta = \alpha_1 - \alpha_2 + (\frac{1}3(\gamma_{11} + \gamma_{12} + \gamma_{13}) - (\frac{1}3)(\gamma_{21} = \gamma_{22} + \gamma_{23})$ **é estimavel** no modelo superparametrizado sem restrição nos parâmetros.
+
+### SAS
+
+```{r}
+#| eval: false
+
+L1 = t({0 1 -1 0 0 0 0 0 0 0 0 0});
+ver = t(X)*X*ginv(t(X)*X);
+verL1 = ver*L1;
+L1BetaMP = t(L1)*BetaMP;
+print 'Mostra que L1Beta = a1-a2 NÃO É estimável no modelo', 'SEM restrição nos parâmetros';
+print L1 verL1 L1BetaMP[format=12.4];
+
+print 'Mostra que L2Beta = a1-a2 + (1/3(g11+g12+g13)-(1/3)(g21+g22+g23) É estimável no modelo',
+      'SEM restrição nos parâmetros';
+L2 = (1/3)*t({0 3 -3 0 0 0 1 1 1 -1 -1 -1});
+verL2 = ver*L2;
+L2BetaMP = t(L2)*BetaMP;
+print L2 verL2 L2BetaMP[format=12.4];
+```
+:::
+
+#### Com restrições nos parâmetros
+
+Agora, verificaremos se funções são estimáveis no modelo superparametrizado **com** restrições nos parâmetros.
+
+::: panel-tabset
+### R
+
+Primeiramente, assumiremos as seguintes condições marginais (restrições):
+
+$$
+\sum_i \hat{\alpha}_i = 0 \quad , \quad \sum_j \hat{\beta}_j = 0 \quad , \quad \sum_i \hat{\gamma}_{ij} = 0 \quad e \quad \sum_j \hat{\gamma}_{ij} = 0
+$$
+
+e expressas na matriz $T$ da seguinte forma:
+
+$$
+\boldsymbol{T\hat{\beta}} = 
+\begin{bmatrix}
+0 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 1 & 1 & 1 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 1 & 1 \\
+0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1
+\end{bmatrix}
+\begin{bmatrix}
+\mu \\ \alpha_1 \\ \alpha_2 \\ \beta_1 \\ \beta_2 \\ \beta_3 \\ \gamma_{11} \\ \gamma_{12} \\ \gamma_{21} \\ \gamma_{22} \\ \gamma_{31} \\ \gamma_{32}
+\end{bmatrix}
+$$
+
+```{r}
+t <- matrix(
+  c(0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1,
+    0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1), 
+  nrow = 7, ncol = 12, byrow = TRUE)
+t
+
+rank_T <- sum(diag(ginv(t) %*% t))
+rank_T
+```
+
+A matriz de coeficientes $\mathbf{T}$ tem dimensão $7 \times 12$ e posto$(\mathbf{W}) = 6$.
+
+Juntando a matriz $\mathbf{X}$ (de posto incompleto) com a matriz $\mathbf{T}$, obtemos uma matriz $\mathbf{W}$ de posto completo (posto$(\mathbf{W}) = 12$).
+
+```{r}
+W <- rbind(X, t)
+W
+
+rank_W <- sum(diag(ginv(W) %*% W))
+rank_W
+```
+
+Ao vetor de valores observados, também colocamos restrições.
+
+```{r}
+yr <- c(y, rep(0, 7))
+yr
+```
+
+Calculando o $\boldsymbol{\beta}$ sujeito às condições marginais, obtemos:
+
+```{r}
+Beta_R <- solve(t(W) %*% W) %*% t(W) %*% yr
+Beta_R
+```
+
+Com o $\boldsymbol{\beta}$ com restrições nos parâmetros, verificaremos se as mesmas funções utilizadas no caso anterior (estimação de funções **sem** restrição) são estimáveis.
+
+-   $\beta = \alpha_1 - \alpha_2$:
+
+```{r}
+L1 <- t(matrix(c(0, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0), nrow = 1))
+L1
+
+ver <- t(W) %*% W %*% solve(t(W) %*% W)
+
+verL1 <- ver %*% L1
+round(verL1)
+
+L1Beta_r <- t(L1) %*% Beta_R
+L1Beta_r
+```
+
+No caso sem restrição nos parâmetros, $\beta = \alpha_1 - \alpha_2$ é não estimável. Contudo, ao impor restrições nos parâmetros, a mesma função passa a ser **estimável**.
+
+-   $\beta = \alpha_1 - \alpha_2 + (\frac{1}3(\gamma_{11} + \gamma_{12} + \gamma_{13}) - (\frac{1}3)(\gamma_{21} = \gamma_{22} + \gamma_{23})$:
+
+```{r}
+L22 <- (1/3) * t(matrix(c(0, 3, -3, 0, 0, 0, 1, 1, 1, -1, -1, -1), nrow = 1))
+L22 |> round(3)
+
+verL22 <- ver %*% L22 |> round(3)
+verL22
+
+L2Beta_R <- t(L22) %*% Beta_R
+L2Beta_R
+```
+
+Bem como no caso sem restrição nos parâmetros, verifica-se que $\beta = \alpha_1 - \alpha_2 + (\frac{1}3(\gamma_{11} + \gamma_{12} + \gamma_{13}) - (\frac{1}3)(\gamma_{21} = \gamma_{22} + \gamma_{23})$ continua a ser **estimável** no modelo com restrição nos parâmetros.
+
+### SAS
+
+```{r}
+#| eval: false
+
+* Matriz T de condições marginais: T*Beta = 0;
+T = {0 1 1 0 0 0 0 0 0 0 0 0,
+	 0 0 0 1 1 1 0 0 0 0 0 0,
+	 0 0 0 0 0 0 1 1 1 0 0 0,
+	 0 0 0 0 0 0 0 0 0 1 1 1,
+	 0 0 0 0 0 0 1 0 0 1 0 0,
+	 0 0 0 0 0 0 0 1 0 0 1 0,
+	 0 0 0 0 0 0 0 0 1 0 0 1};
+rank_T = round(trace(ginv(T)*T)); 	* Determina o posto da matriz T;
+W = X//T; 							* Junta as matrizes X e T;
+rank_W = round(trace(ginv(W)*W)); 	* Calcula o posto da matriz W = X//T;
+print npar rank_X rank_T rank_W;
+yr = y//j(7,1,0); 					* Completa o vetor y com 7 zeros;
+Beta_R = inv(t(W)*W)*t(W)*yr; 		* Beta sujeito às condições marginais;
+print BetaMP[format=12.4] Beta_R[format=12.4];
+
+print '------------------------------------------------------------',
+      ' ESTIMABILIDADE NO MODELO SUPERPARAMETRIZADO COM RESTRIÇÕES ',
+      '------------------------------------------------------------',;
+L1 = t({0 1 -1 0 0 0 0 0 0 0 0 0});
+ver = t(W)*W*inv(t(W)*W);
+verL1 = ver*L1;
+L1Beta_r = t(L1)*Beta_R;
+print 'Mostra que L1Beta = a1-a2 É estimável no modelo', 'COM restrição nos parâmetros';
+print L1 verL1 L1Beta_R[format=12.4];
+
+print 'Mostra que L2Beta = a1-a2 +(1/3(g11+g12+g13)-(1/3)(g21=g22+g23) É estimável no modelo',
+      'COM restrição nos parâmetros';
+L2 = (1/3)*t({0 3 -3 0  0  0  1  1  1 -1 -1 -1});
+verL2 = ver*L2;
+L2Beta_R = t(L2)*Beta_R;
+print L2 verL2 L2Beta_R[format=12.4];	
+```
+:::
+
+#### Hipótese linear geral
+
+Agora, utilizaremos a abordagem da hipótese linear geral para verificar a estimabilidade de funções no modelo superparametrizado **sem restrição** e **com restrição**.
+
+::: panel-tabset
+### R
+
+```{r}
+CA <- (1 / 3) * c(0,  3, -3,  0,  0,  0,  1,  1,  1, -1, -1, -1)
+fractions(CA)
+```
+
+-   Sem restrição:
+
+```{r}
+CABeta <- CA %*% Beta
+CABeta
+
+SQ_A <- t(CABeta) %*% solve(t(CA) %*% ginv(t(X) %*% X) %*% CA) %*% CABeta
+SQ_A
+```
+
+-   Com restrição:
+
+```{r}
+CABeta_R <- CA %*% Beta_R
+CABeta_R
+
+SQ_A_R = t(CABeta_R) %*% solve(t(CA) %*% solve(t(W) %*% W) %*% CA) %*% CABeta_R
+SQ_A_R
+```
+
+Nota-se que, ao utilizar a matriz de coeficientes $\mathbf{C}$ da hipótese linear geral, obtemos o mesmo resultado de soma de quadrados tanto para o caso sem restrição, como para o caso com restrição.
+
+### SAS
+
+```{r}
+#| eval: false
+
+* Cálculo de SQA usando hipótese linear geral;
+
+* (1) No modelo SEM restrição;
+* CA = {0  1 -1  0  0  0  0  0  0  0  0  0};
+CA = (1/3)*{0  3 -3  0  0  0  1  1  1 -1 -1 -1};
+CABeta = CA*Beta_R;
+print '-----------------------------------------------------------',
+      ' ESTIMABILIDADE NO MODELO SUPERPARAMETRIZADO SEM RESTRIÇÃO ',
+      '-----------------------------------------------------------',
+      CA[format=6.2],,CABeta[format=12.4],,;
+
+SQ_A = t(CABeta)*inv(CA*ginv(t(X)*X)*t(CA))*CABeta;
+
+* (1) No modelo COM restrição;
+CABeta_R = CA*Beta_R;
+print 'No modelo COM restrição nos parâmetros:',,CA[format=6.2],,CABeta_R[format=12.4],,;
+
+SQ_A_R = t(CABeta_r)*inv(CA*inv(t(W)*W)*t(CA))*CABeta_r;
+print SQ_A[format=12.4] SQ_A_R[format=12.4];
+
+quit;
+```
+:::
+
+## Capítulo 15 - ANOVA para dados desbalanceados
+
+### ANOVA com um fator
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+options(scipen = 999999, knitr.kable.NA = '')
+
+library(MASS)
+```
+
+Nesta seção, trataremos da ANOVA com **um fator** em conjuntos de dados **desbalanceados**, em que o número de observações por tratamento não é o mesmo.
+
+O modelo desbalanceado com um fator é dado por:
+
+$$
+\begin{align}
+y_{ij} = \mu + \tau_i + \epsilon_{ij} = \mu_{i} + \epsilon_{ij} \\
+i = 1,\dots,k \space \text{ e } \space j = 1,\dots,n_i
+\end{align}
+$$
+
+Para realizar inferências, assumiremos $\epsilon_{ij} \sim N(0, \sigma^2)$ são independentes e identicamente distribuídos.
+
+Como exemplo, temos o seguinte caso: *Os pesos líquidos de latas enchidas por cinco máquinas de enchimento são apresentados:*
+
+```{r}
+#| echo: false
+
+data.frame(
+  A = c(11.95, 12, 12.25, 12.10),
+  B = c(12.18, 12.11, "-", "-"),
+  C = c(12.16, 12.15, 12.08, "-"),
+  D = c(12.25, 12.30, 12.10, "-"),
+  E = c(12.10, 12.04, 12.02, 12.02)
+) |> 
+  kableExtra::kbl(align = "c") |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+O modelo matricial de médias de caselas $\mathbf{y} = \mathbf{W}\boldsymbol{\mu} + \boldsymbol{\epsilon}$ é dado por:
+
+$$
+\begin{bmatrix}
+y_{11} \\ y_{12} \\ y_{13} \\ y_{14} \\ y_{21} \\ y_{22} \\ y_{31} \\ y_{32} \\ y_{33} \\ y_{41} \\ y_{42} \\ y_{43} \\ y_{51} \\ y_{52} \\ y_{53} \\ y_{54}
+\end{bmatrix}
+=
+\begin{bmatrix}
+11,95 \\ 12,00 \\ 12,25 \\ 12,10 \\ 12,18 \\ 12,11 \\ 12,16 \\ 12,15 \\ 12,08 \\ 12,25 \\ 12,30 \\ 12,10 \\ 12,10 \\ 12,04 \\ 12,02 \\ 12,02
+\end{bmatrix}
+=
+\begin{bmatrix}
+1 & 0 & 0 & 0 & 0 \\
+1 & 0 & 0 & 0 & 0 \\
+1 & 0 & 0 & 0 & 0 \\
+1 & 0 & 0 & 0 & 0 \\
+0 & 1 & 0 & 0 & 0 \\
+0 & 1 & 0 & 0 & 0 \\
+0 & 0 & 1 & 0 & 0 \\
+0 & 0 & 1 & 0 & 0 \\
+0 & 0 & 1 & 0 & 0 \\
+0 & 0 & 0 & 1 & 0 \\
+0 & 0 & 0 & 1 & 0 \\
+0 & 0 & 0 & 1 & 0 \\
+0 & 0 & 0 & 0 & 1 \\
+0 & 0 & 0 & 0 & 1 \\
+0 & 0 & 0 & 0 & 1 \\
+0 & 0 & 0 & 0 & 1 \\
+\end{bmatrix}
+\begin{bmatrix}
+\mu_1 \\ \mu_2 \\ \mu_3 \\ \mu_4 \\ \mu_5
+\end{bmatrix}
++
+\begin{bmatrix}
+\epsilon_{11} \\ \epsilon_{12} \\ \epsilon_{13} \\ \epsilon_{14} \\ \epsilon_{21} \\ \epsilon_{22} \\ \epsilon_{31} \\ \epsilon_{32} \\ \epsilon_{33} \\ \epsilon_{41} \\ \epsilon_{42} \\ \epsilon_{43} \\ \epsilon_{51} \\ \epsilon_{52} \\ \epsilon_{53} \\ \epsilon_{54}
+\end{bmatrix}
+$$
+
+::: panel-tabset
+### R
+
+```{r}
+#| eval: false
+
+install.packages("MASS")
+library(MASS)
+```
+
+```{r}
+y <- c(11.95,12.00,12.25,12.10,12.18,12.11,12.16,12.15,12.08,12.25,12.30,12.10,12.10,12.04,12.02,12.02)
+y
+
+W <- matrix(
+  c(rep(1, 4), rep(0, 12),
+  rep(0, 4), rep(1, 2), rep(0, 10),
+  rep(0, 6), rep(1, 3), rep(0, 7),
+  rep(0, 9), rep(1, 3), rep(0, 4),
+  rep(0, 12), rep(1, 4)),
+  ncol = 5, byrow = FALSE
+)
+W
+```
+
+Note que a matriz $\mathbf{W}$ é de posto completo (posto$(\mathbf{W}) = k = 5$).
+
+```{r}
+k <- ncol(W)                         # Número de tratamentos
+k
+
+rank_W <- sum(diag(ginv(W) %*% W))   # posto da matriz W
+rank_W
+
+deficit_rank <- k - rank_W           # déficit de rank
+deficit_rank
+```
+
+Dessa forma, o sistema de equações normais $\mathbf{(W'W)} \boldsymbol{\hat\mu} = \mathbf{(W'y)}$ tem solução única:
+
+$$
+\boldsymbol{\hat\mu} = \mathbf{(W'W)}^{-1} \mathbf{W'y} = \mathbf{\bar{y}} =
+\begin{bmatrix}
+\bar{y}_{1.} \\ \bar{y}_{2.} \\ \bar{y}_{3.} \\ \bar{y}_{4.} \\ \bar{y}_{5.}
+\end{bmatrix}
+$$
+
+### SAS
+
+```{r}
+#| eval: false
+
+options nodate nocenter ps=1000;
+proc iml;
+reset fuzz;
+* Exemplo 15.2.1 Os pesos líquidos de latas enchidas por cinco máquinas; 
+* de enchimento (filling machines) são apresentados na Tabela 14.2;
+
+y = {11.95,12.00,12.25,12.10,12.18,12.11,12.16,12.15,
+     12.08,12.25,12.30,12.10,12.10,12.04,12.02,12.02};
+
+Trat = {1,1,1,1,2,2,3,3,3,4,4,4,5,5,5,5};
+W = design(Trat); 	* W do modelo de médias de caselas;
+k = ncol(W);		* Número de tratamentos;
+N = nrow(W);		* Número total de repetições;
+print W y[format=10.2];
+```
+:::
+
+#### Teste de hipótese
+
+Para testar a hipótese $H_0: \mu_1 = \mu_2 = \mu_3 = \mu_4 = \mu_5$, podemos utilizar a abordagem do **modelo completo x modelo reduzido** e **contrastes**.
+
+##### Modelo completo x Modelo reduzido
+
+::: panel-tabset
+### R
+
+```{r}
+N <- nrow(W)   # Número total de repetições
+N
+
+Jnn <- matrix(1, nrow = N, ncol = N)
+In <- diag(1, nrow = N)
+```
+
+A soma de quadrados total (`SQTotal`) é dada por:
+
+$$
+SQTotal = \mathbf{y'} \left(\mathbf{I} - \frac{1}n \mathbf{J}\right) \mathbf{y}
+$$
+
+```{r}
+# Total
+SQTotal <- t(y) %*% (In - Jnn / N) %*% y
+SQTotal
+
+gl_total <- N - 1
+gl_total
+```
+
+A soma de quadrados do **modelo completo** de média de caselas é dado por:
+
+$$
+SQ(\mu_1,\mu_2,\mu_3,\mu_4,\mu_5) = \boldsymbol{\hat\mu' W'y}
+$$
+
+```{r}
+# Modelo completo
+mi <- solve(t(W) %*% W) %*% t(W) %*% y
+mi
+
+SQcompleto <- t(mi) %*% t(W) %*% y
+SQcompleto
+```
+
+O **modelo reduzido** pode ser escrito, matricialmente, da seguinte maneira:
+
+$$
+\mathbf{y} = \mu \mathbf{j} + \boldsymbol{\epsilon}^*, \quad \text{onde } \mathbf{j} \text{ é } N \times 1
+$$
+
+em que $\mathbf{j}$ é um vetor coluna de 1's com dimensão $N \times 1$, sendo $N$ o número total de observações (sem contar os valores ausentes).
+
+Dessa forma, a soma de quadrados do **modelo reduzido** é dado por:
+
+$$
+SQ(\mu) = \hat\mu \mathbf{j}' \mathbf{y}
+$$
+
+```{r}
+# Modelo reduzido
+jn <- matrix(1, ncol = 1, nrow = N)
+jn
+
+mi_reduzido <- solve(t(jn) %*% jn) %*% t(jn) %*% y
+mi_reduzido
+
+SQreduzido <- t(mi_reduzido) %*% t(jn) %*% y
+SQreduzido
+```
+
+Com as somas de quadrados dos modelos completo e reduzido, obtemos a soma de quadrados **entre grupos**, calculada pela diferença entre a soma de quadrados do modelo completo (`SQcompleto`) e a soma de quadrados do modelo reduzido (`SQreduzido`). Além disso, apresenta $(k-1)$ graus de liberdade.
+
+```{r}
+# Entre grupos
+SQEntre <- SQcompleto - SQreduzido
+SQEntre
+
+gl_entre <- k - 1
+gl_entre
+
+QMEntre <- SQEntre / gl_entre
+QMEntre
+```
+
+Já a soma de quadrados dos resíduos (`SQRes`) é dada por:
+
+$$
+SQRes = \mathbf{y'y} - \boldsymbol{\hat\mu' W'y}
+$$
+
+```{r}
+# Resíduo
+SQRes <- t(y) %*% y - t(mi) %*% t(W) %*% y
+SQRes
+
+gl_res <- N - k
+gl_res
+
+QMRes <- SQRes / gl_res
+QMRes
+```
+
+Com os quadrados médios, calcularemos a estatística F e o p-valor.
+
+```{r}
+Fcalc <- QMEntre / QMRes
+Fcalc
+
+Ftab <- qf(0.95, gl_entre, gl_res)
+Ftab
+
+p_valor <- 1 - pf(Fcalc, gl_entre, gl_res)
+p_valor
+```
+
+A seguir, o quadro da ANOVA compila os resultados obtidos.
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "FV" = c("Hipótese", "Resíduo", "Total"),
+  "gl" = c(gl_entre, gl_res, gl_total),
+  "SQ" = c(SQEntre, SQRes, SQTotal) |> round(4),
+  "QM" = c(QMEntre, QMRes, NA) |> round(4),
+  "Fcal" = c(Fcalc, NA, NA) |> round(4),
+  "Ftab" = c(Ftab, NA, NA) |> round(4),
+  "p.valor" = c(p_valor, NA, NA) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "ANOVA desbalanceada: H0: m1=m2=m3=m4=m5",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que o $F_{cal} < F_{tab}$, considerando $F_{(0,05;4;11)}$, não se rejeita $H_0: \mu_1 = \mu_2 = \mu_3 = \mu_4 = \mu_5$, ou seja, não existem diferenças significativas entre as médias ponderadas dos pesos líquidos de latas enchidas pelas cinco máquinas. Ainda, podemos dizer que os pesos líquidos médios das latas enchidas pelas cinco máquinas não diferem entre si.
+
+### SAS
+
+```{r}
+#| eval: false
+
+Jnn = J(N,N,1);
+In = I(N);
+SQTotal = t(y)*(In-Jnn/N)*y;
+gl_total = N-1;
+
+mi = inv(t(W)*W)*t(W)*y;
+SQcompleto = t(mi)*t(W)*y; 		* SQ do modelo completo: yij = mi(i) + eij;
+
+jn = J(N,1,1);
+mir = inv(t(jn)*jn)*t(jn)*y;
+SQreduzido = t(mir)*t(jn)*y; 	* SQ do modelo reduzido: yij = mi + eij;
+
+SQEntre = SQCompleto - SQreduzido;
+gl_entre = k-1;
+QMEntre = SQEntre/gl_entre;
+
+SQRes = t(y)*y - t(mi)*t(W)*y;
+gl_res = N-K;
+QMRes = SQRes/gl_res;
+
+Fcalc = QMEntre/QMRes;
+p_valor = 1 - cdf('F', Fcalc,gl_entre, gl_res);
+
+print '------------------------------',
+      'Exemplo 15.2.1 Quadro de ANOVA',
+      '------------------------------';
+print 'Ho: m1=m2=m3=m4=m5'  gl_entre SQEntre[format=10.5] QMEntre[format=10.5] Fcalc[format=8.4] p_valor[format=8.3],,
+      'Resíduo           '  gl_res   SQRes[format=10.5]   QMRes[format=10.5],,
+      'Total             '  gl_total SQTotal[format=10.5]; 
+```
+:::
+
+##### Contrastes
+
+Definimos um contraste de $k$ médias populacionais como:
+
+$$
+\delta = c_1\mu_1 + c_2\mu_2 + \dots + c_k\mu_k = \boldsymbol{c'\mu}
+$$
+
+em que $\sum^k_{i=1} c_i = 0$.
+
+Quando trabalhamos com ANOVA **balanceada**, dois contrastes
+
+$$
+\hat\delta = \sum^k_{i=1} a_i \bar{y}_{i.} \quad \text{e} \quad \hat\gamma = \sum^k_{i=1} b_i \bar{y}_{i.}
+$$
+
+são ditos ortogonais se $\sum^k_{i=1} a_i b_i = 0$, sendo esta a condição de independência entre os contrastes.
+
+Para o caso **desbalanceado**, devemos utilizar **contrastes ortogonais ponderados**, afim de garantir a independência entre os contrastes. Dessa forma, os contrastes $\hat\delta$ e $\hat\gamma$ são independentes em modelos desbalanceados se e somente se
+
+$$
+\sum^k_{i=1} \frac{a_i b_i}{n_i} = 0
+$$
+
+sendo $n_i$ as respostas ao $i$-ésimo tratamento.
+
+Contudo, na prática, os contrastes ortogonais ponderados são de menor interesse que os contrastes ortogonais não ponderados, não sendo necessário que as somas de quadrados sejam independentes para realizarmos os testes sobre os contrastes.
+
+A seguir, veremos as diferenças entre os contrastes ortogonais não ponderados e os ponderados.
+
+###### Contrastes ortogonais não ponderados
+
+::: panel-tabset
+### R
+
+Os contrastes a seguir comparam as médias dos tratamentos da seguinte maneira:
+
+$$
+\begin{align}
+H_{a01}&: 3\mu_1 - 2\mu_2 - 2\mu_3 + 3\mu_4 - 2\mu_5 = 0 \\
+H_{a02}&: \mu_2 - 2\mu_3 + \mu_5 = 0 \\
+H_{a03}&: \mu_1 - \mu_4 = 0 \\
+H_{a04}&: \mu_2 - \mu_5 = 0 \\
+\end{align}
+$$
+
+```{r}
+a1 <- c(3,-2,-2, 3,-2)
+a2 <- c(0, 1,-2, 0, 1)
+a3 <- c(1, 0, 0,-1, 0)
+a4 <- c(0, 1, 0, 0,-1)
+```
+
+As somas de quadrados são calculadas a partir da seguinte forma quadrática:
+
+$$
+SQ(\hat\delta) = \boldsymbol{(c'\mu)}' [\mathbf{c'(W'W)c}]^{-1} \boldsymbol{(c'\mu)}
+$$
+
+em que $\mathbf{c}$ é o vetor de coeficientes do contraste.
+
+```{r}
+SQa1 <- t(t(a1) %*% mi) %*% solve(t(a1) %*% solve(t(W) %*% W) %*% a1) %*% t(a1) %*% mi
+F_a1 <- SQa1 / QMRes
+p_valor_a1 <- 1 - pf(F_a1, 1, gl_res)
+
+SQa2 <- t(t(a2) %*% mi) %*% solve(t(a2) %*% solve(t(W) %*% W) %*% a2) %*% t(a2) %*% mi
+F_a2 <- SQa2 / QMRes
+p_valor_a2 <- 1 - pf(F_a2, 1, gl_res)
+
+SQa3 <- t(t(a3) %*% mi) %*% solve(t(a3) %*% solve(t(W) %*% W) %*% a3) %*% t(a3) %*% mi
+F_a3 <- SQa3 / QMRes
+p_valor_a3 <- 1 - pf(F_a3, 1, gl_res)
+
+SQa4 <- t(t(a4) %*% mi) %*% solve(t(a4) %*% solve(t(W) %*% W) %*% a4) %*% t(a4) %*% mi
+F_a4 <- SQa4 / QMRes
+p_valor_a4 <- 1 - pf(F_a4, 1, gl_res)
+```
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "Contrastes" = c("A,D vs. B,C,E", "B,E vs. C", "A vs. D", "B vs. E"),
+  "SQ" = c(SQa1, SQa2, SQa3, SQa4) |> round(4), 
+  "Fcal" = c(F_a1, F_a2, F_a3, F_a4) |> round(4),
+  "p.valor" = c(p_valor_a1, p_valor_a2, p_valor_a3, p_valor_a4) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "ANOVA: Contrastes ortogonais não ponderados",
+    col.names = c("Contrastes", "SQ", "Fcal", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que nenhum p-valor é menor que $\alpha = 0,05$, não rejeitamos qualquer uma das hipóteses $H_0: \sum_i c_i\mu_i = 0$ associadas aos contrastes definidos anteriormente.
+
+Ao somar as somas de quadrados dos contrastes ortogonais **não ponderados**, não obtemos o mesmo resultado da soma de quadrados entre grupos (`SQEntre`)
+
+```{r}
+SQContrastes <- SQa1 + SQa2 + SQa3 + SQa4
+SQContrastes
+
+SQEntre
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+* Contrastes ortogonais do tipo t(ai)*mi;
+a1 = {3,-2,-2, 3,-2};
+a2 = {0, 1,-2, 0, 1};
+a3 = {1, 0, 0,-1, 0};
+a4 = {0, 1, 0, 0,-1};
+
+SQA1 = t(t(a1)*mi)*inv(t(a1)*inv(t(W)*W)*a1)*t(a1)*mi;
+F_A1 = SQA1/QMRes;
+p_valor_A1 = 1 - cdf('F', F_A1,1, gl_res);
+
+SQa2 = t(t(a2)*mi)*inv(t(a2)*inv(t(W)*W)*a2)*t(a2)*mi;
+F_a2 = SQa2/QMRes;
+p_valor_a2 = 1 - cdf('F', F_a2,1, gl_res);
+
+SQa3 = t(t(a3)*mi)*inv(t(a3)*inv(t(W)*W)*a3)*t(a3)*mi;
+F_a3 = SQa3/QMRes;
+p_valor_a3 = 1 - cdf('F', F_a3,1, gl_res);
+
+SQa4 = t(t(A4)*mi)*inv(t(A4)*inv(t(W)*W)*A4)*t(A4)*mi;
+F_A4 = SQA4/QMRes;
+p_valor_A4 = 1 - cdf('F', F_A4,1, gl_res);
+
+print '-------------------------------------',
+      'Contrastes ortogonais não ponderados:',
+	  '-------------------------------------',
+      'A,D vs. B,C,E' SQA1[format=10.5] F_A1[format=12.4] p_valor_A1[format=12.3],,
+      'B,E vs. C    ' SQA2[format=10.5] F_A2[format=12.4] p_valor_A2[format=12.3],,
+	  'A vs. D      ' SQA3[format=10.5] F_A3[format=12.4] p_valor_A3[format=12.3],,
+	  'B vs. E      ' SQA4[format=10.5] F_A4[format=12.4] p_valor_A4[format=12.3],,;
+
+SQContrastes = SQA1 + SQA2 + SQA3 + SQA4;
+print '----------------------------------------------------------------',
+      'SQContrastes = SQA1 + SQA2 + SQA3 + SQA4 não é igual a SQEntre: ',,
+       SQContrastes[format=10.5] SQEntre[format=10.5],,
+      'porque os contrastes NÃO SÃO ORTOGONAIS!',
+      '----------------------------------------------------------------',,,;
+```
+:::
+
+###### Contrastes ortogonais ponderados
+
+::: panel-tabset
+### R
+
+Utilizaremos o primeiro contraste ortogonal do exemplo anterior, $H_{a01}: 3\mu_1 - 2\mu_2 - 2\mu_3 + 3\mu_4 - 2\mu_5 = 0$, e o contraste ortogonal de $H_0: 2\mu_2 - 6\mu_3 + 4\mu_5 = 0$ para ilustrar os contrastes ortogonais **ponderados**. Portanto:
+
+$$
+\begin{align}
+\delta &= \boldsymbol{a'\mu} = [3, -2, -2, 3, -2] \boldsymbol{\mu} \\
+\gamma &= \boldsymbol{b'\mu} = [0, 2, -6, 0, 4] \boldsymbol{\mu}
+\end{align}
+$$
+
+Neste caso, temos **contrastes ortogonais ponderados**:
+
+$$
+\sum^k_{i=1} \frac{a_ib_i}{n_i} = \frac{3(0)}4 - \frac{2(2)}2 - \frac{2(-6)}3 + \frac{3(0)}3 - \frac{2(4)}4 = 0
+$$
+
+```{r}
+a2p <- c(0, 2, -6, 0, 4)
+
+SQa2p <- t(t(a2p) %*% mi) %*% solve(t(a2p) %*% solve(t(W) %*% W) %*% a2p) %*% t(a2p) %*% mi
+
+F_a2p <- SQa2p / QMRes
+
+p_valor_a2p <- 1 - pf(F_a2p, 1, gl_res)
+```
+
+Assim, as somas de quadrados associadas aos dois contrastes são **independentes**, cujos valores estão descritos no seguinte quadro de ANOVA.
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "Contrastes" = c("A,D vs. B,C,E", "2B + 4E vs. 6C"),
+  "SQ" = c(SQa1, SQa2p) |> round(4), 
+  "Fcal" = c(F_a1, F_a2p) |> round(4),
+  "p.valor" = c(p_valor_a1, p_valor_a2p) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "ANOVA: Contrastes ortogonais ponderados",
+    col.names = c("Contrastes", "SQ", "Fcal", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+A2p = {0, 2, -6, 0, 4};
+SQA2p = t(t(a2p)*mi)*inv(t(a2p)*inv(t(W)*W)*a2p)*t(a2p)*mi;
+F_a2p = SQa2p/QMRes;
+p_valor_a2p = 1 - cdf('F', F_a2p,1, gl_res);
+
+print '---------------------------------',
+      'Contrastes ortogonais ponderados:',
+	  '---------------------------------',,
+      'A,D vs. B,C,E' SQA1[format=8.6]  F_A1[format=12.4]  p_valor_A1[format=8.3],,
+	  '2B+4E vs. 6C ' SQA2p[format=8.6] F_A2p[format=12.4] p_valor_A2p[format=8.3],,,,;
+quit;
+```
+:::
+
+### ANOVA com dois fatores
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+options(scipen = 999999, knitr.kable.NA = '')
+
+library(MASS)
+library(ExpDes.pt)
+```
+
+Agora, trataremos da ANOVA com **dois fatores** em conjuntos de dados **desbalanceados**. O modelo desbalanceado com dois fatores é dado por:
+
+$$
+\begin{align}
+y_{ijk} = \mu + \alpha_i + \beta_j + \gamma{ij} + \epsilon_{ij} = \mu_{ij} + \epsilon_{ijk} \\
+i = 1,\dots,a \space \text{ , } \space j = 1,\dots,b \space \text{ e } \space k = 1, \dots, n_{ij}
+\end{align}
+$$
+
+Para realizar inferências, assumiremos $\epsilon_{ijk} \sim N(\mu_{ij}, \sigma^2)$ são independentes e identicamente distribuídos.
+
+Para o caso fatorial desbalanceado, utilizaremos o modelo de médias de caselas, que fornece uma abordagem mais simples e sem ambiguidades para testar hipóteses, quando comparado ao modelo superparametrizado.
+
+Como exemplo, considere: *Em um experimento de substituição do farelo de soja pelo farelo de girassol na ração de suínos, montou-se um experimento fatorial 2x5, com os fatores Sexo (1:Macho e 2:Fêmea) e Girassol (0, 25, 50, 75 e 100% de substituição). Foram utilizados 30 suínos (15 machos e 15 fêmeas) castrados da raça Duroc-Jersey, num delineamento inteiramente casualizado com 3 repetições. Na fase final do período experimental ocorreu a morte de três suínos. Os ganhos de peso dos animais aos 112 dias de experimento estão apresentados a seguir:*
+
+|      |      | Macho |      |      |      |      | Fêmea |      |      |
+|:----:|:----:|:-----:|:----:|:----:|:----:|:----:|:-----:|:----:|:----:|
+|  0   |  25  |  50   |  75  | 100  |  0   |  25  |  50   |  75  | 100  |
+|  \-  | 94,5 | 99,5  | 93,0 | 83,0 | 77,9 | 71,5 | 67,5  | 71,5 | 89,5 |
+| 86,0 | 96,0 | 98,0  | 96,0 | 80,0 | 83,2 | 73,5 |  \-   | 70,8 | 91,8 |
+| 84,0 | 95,8 |  \-   | 90,5 | 78,5 | 83,5 | 70,5 | 65,0  | 72,5 | 92,9 |
+
+O modelo matemático é dado por:
+
+$$
+\begin{align}
+y_{ijk}& = \mu_{ij} + \epsilon_{ijk} \\
+i = 1,2 \space \text{ , } \space &j = 1,\dots,5 \space \text{ e } \space k = n_{ij}
+\end{align}
+$$
+
+Já o modelo matricial de médias de caselas $\mathbf{y} = \mathbf{W}\boldsymbol{\mu} + \boldsymbol{\epsilon}$ é dado por:
+
+$$
+\begin{bmatrix}
+y_{111} \\ y_{112} \\ y_{113} \\ y_{121} \\ y_{122} \\ y_{123} \\ y_{131} \\ y_{132} \\ y_{141} \\ y_{142} \\ y_{143} \\ y_{151} \\ y_{152} \\ y_{153} \\ y_{211} \\ y_{212} \\ y_{221} \\ y_{222} \\ y_{223} \\ y_{231} \\ y_{232} \\ y_{241} \\ y_{242} \\ y_{243} \\ y_{251} \\ y_{252} \\ y_{253}
+\end{bmatrix}
+=
+\begin{bmatrix}
+77.9 \\ 83.2 \\ 83.5 \\ 71.5 \\ 73.5 \\ 70.5 \\ 67.5 \\ 65 \\ 71.5 \\ 70.8 \\ 72.5 \\ 89.5 \\ 91.8 \\ 92.9 \\ 86 \\ 84 \\ 94.5 \\ 96 \\ 95.8 \\ 99.5 \\ 98 \\ 93 \\ 96 \\ 90.5 \\ 83 \\ 80 \\ 78.5
+\end{bmatrix}
+=
+\begin{bmatrix}
+1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+\end{bmatrix}
+\begin{bmatrix}
+\mu_{11} \\ \mu_{12} \\ \mu_{13} \\ \mu_{14} \\ \mu_{15} \\ \mu_{21} \\ \mu_{22} \\ \mu_{23} \\ \mu_{24} \\ \mu_{25} 
+\end{bmatrix}
+\begin{bmatrix}
+\epsilon_{111} \\ \epsilon_{112} \\ \epsilon_{113} \\ \epsilon_{121} \\ \epsilon_{122} \\ \epsilon_{123} \\ \epsilon_{131} \\ \epsilon_{132} \\ \epsilon_{141} \\ \epsilon_{142} \\ \epsilon_{143} \\ \epsilon_{151} \\ \epsilon_{152} \\ \epsilon_{153} \\ \epsilon_{211} \\ \epsilon_{212} \\ \epsilon_{221} \\ \epsilon_{222} \\ \epsilon_{223} \\ \epsilon_{231} \\ \epsilon_{232} \\ \epsilon_{241} \\ \epsilon_{242} \\ \epsilon_{243} \\ \epsilon_{251} \\ \epsilon_{252} \\ \epsilon_{253}
+\end{bmatrix}
+$$
+
+::: panel-tabset
+### R
+
+```{r}
+library(MASS)
+```
+
+```{r}
+y <- c(77.9,83.2,83.5,71.5,73.5,70.5,67.5,65,71.5,70.8,72.5,89.5,91.8,92.9,86,84,94.5,96,95.8,99.5,98,93,96,90.5,83,80,78.5)
+
+n <- length(y)
+n
+
+W <- matrix(c(
+  1, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+  1, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+  1, 0,  0,  0,  0,  0,  0,  0,  0,  0,
+  0, 1,  0,  0,  0,  0,  0,  0,  0,  0,
+  0, 1,  0,  0,  0,  0,  0,  0,  0,  0,
+  0, 1,  0,  0,  0,  0,  0,  0,  0,  0,
+  0, 0,  1,  0,  0,  0,  0,  0,  0,  0,
+  0, 0,  1,  0,  0,  0,  0,  0,  0,  0,
+  0, 0,  0,  1,  0,  0,  0,  0,  0,  0,
+  0, 0,  0,  1,  0,  0,  0,  0,  0,  0,
+  0, 0,  0,  1,  0,  0,  0,  0,  0,  0,
+  0, 0,  0,  0,  1,  0,  0,  0,  0,  0,
+  0, 0,  0,  0,  1,  0,  0,  0,  0,  0,
+  0, 0,  0,  0,  1,  0,  0,  0,  0,  0,
+  0, 0,  0,  0,  0,  1,  0,  0,  0,  0,
+  0, 0,  0,  0,  0,  1,  0,  0,  0,  0,
+  0, 0,  0,  0,  0,  0,  1,  0,  0,  0,
+  0, 0,  0,  0,  0,  0,  1,  0,  0,  0,
+  0, 0,  0,  0,  0,  0,  1,  0,  0,  0,
+  0, 0,  0,  0,  0,  0,  0,  1,  0,  0,
+  0, 0,  0,  0,  0,  0,  0,  1,  0,  0,
+  0, 0,  0,  0,  0,  0,  0,  0,  1,  0,
+  0, 0,  0,  0,  0,  0,  0,  0,  1,  0,
+  0, 0,  0,  0,  0,  0,  0,  0,  1,  0,
+  0, 0,  0,  0,  0,  0,  0,  0,  0,  1,
+  0, 0,  0,  0,  0,  0,  0,  0,  0,  1,
+  0, 0,  0,  0,  0,  0,  0,  0,  0,  1
+), ncol = 10, byrow = TRUE
+)
+```
+
+Nota-se que posto$(W) = k = 10$, sendo $k$ o número de parâmetros do modelo.
+
+```{r}
+# Número de parâmetros
+k <- ncol(W)
+k
+
+# Posto de W
+rank_W <- sum(diag(ginv(W) %*% W))
+rank_W
+
+# Déficit de rank
+deficit_rank <- k - rank_W
+deficit_rank
+```
+
+Dessa forma, o sistema de equações normais $\mathbf{(W'W)} \boldsymbol{\hat\mu} = \mathbf{(W'y)}$ tem solução única:
+
+$$
+\boldsymbol{\hat\mu} = \mathbf{(W'W)}^{-1} \mathbf{W'y} = \mathbf{\bar{y}} =
+\begin{bmatrix}
+\bar{y}_{11.} \\ \bar{y}_{12.} \\ \bar{y}_{13.} \\ \bar{y}_{14.} \\ \bar{y}_{15.} \\ \bar{y}_{21.} \\ \bar{y}_{22.} \\ \bar{y}_{23.} \\ \bar{y}_{24.} \\ \bar{y}_{25.} 
+\end{bmatrix}
+$$
+
+Onde o vetor $\mathbf{\bar{y}}$ contém as médias amostrais das caselas.
+
+```{r}
+Mi <- solve(t(W) %*% W) %*% t(W) %*% y
+Mi
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+data Girassol;
+input Sexo Girassol Trat Rep GP;
+* n11=2 n12=3 n13=2 n14=3 n15=3;
+* n21=2 n22=3 n23=2 n24=3 n25=3;
+cards;
+  1   0   1   1  77.9
+  1   0   1   2  83.2
+  1   0   1   3  83.5
+  1  25   2   1  71.5
+  1  25   2   2  73.5
+  1  25   2   3  70.5
+  1  50   3   1  67.5
+  1  50   3   3  65.0
+  1  75   4   1  71.5
+  1  75   4   2  70.8
+  1  75   4   3  72.5
+  1 100   5   1  89.5
+  1 100   5   2  91.8
+  1 100   5   3  92.9
+  2   0   6   2  86.0
+  2   0   6   3  84.0
+  2  25   7   1  94.5
+  2  25   7   2  96.0
+  2  25   7   3  95.8
+  2  50   8   1  99.5
+  2  50   8   2  98.0
+  2  75   9   1  93.0
+  2  75   9   2  96.0
+  2  75   9   3  90.5
+  2 100  10   1  83.0
+  2 100  10   2  80.0
+  2 100  10   3  78.5
+;
+
+proc iml;
+varNames = {"Sexo" "Girassol" "Trat" "Rep" "GP"};
+use work.Girassol;
+read all var varNames;
+close work.Girassol;
+print Sexo Girassol Trat Rep GP;
+
+y = GP; 
+n = nrow(y);
+
+W = design(Trat);
+
+Mi = inv(t(W)*W)*t(W)*GP;
+print GP W Mi[format=8.2];
+```
+:::
+
+#### Teste de hipótese
+
+##### Modelo de médias
+
+A seguir, testaremos a hipótese de igualdade entre as médias dos tratamentos utilizando a abordagem do **modelo completo x modelo reduzido**.
+
+::: panel-tabset
+### R
+
+```{r}
+Jnxn <- matrix(1, n, n)
+Inxn <- diag(n)
+```
+
+A soma de quadrados total (`SQTotal`) é dada por:
+
+$$
+SQTotal = \mathbf{y'} \left(\mathbf{I} - \frac{1}n \mathbf{J}\right) \mathbf{y}
+$$
+
+```{r}
+# Total
+AT <- Inxn - (1 / n) * Jnxn
+
+SQTotal <- t(y) %*% AT %*% y
+SQTotal
+
+gl_total <- sum(diag(AT %*% ginv(AT)))
+gl_total
+```
+
+A soma de quadrados dos resíduos (`SQRes`) é dada por:
+
+$$
+SQRes = \mathbf{y'} [\mathbf{I} - \mathbf{W(W'W)^{-}W'}] \mathbf{y}
+$$
+
+```{r}
+# Residuo
+AR <- Inxn - W %*% ginv(t(W) %*% W) %*% t(W)
+
+SQRes <- t(y) %*% AR %*% y
+SQRes
+
+gl_res <- sum(diag(AR %*% ginv(AR)))
+gl_res
+
+QMRes <- SQRes / gl_res
+QMRes
+```
+
+A soma de quadrados de tratamento é:
+
+$$
+SQTrat = \mathbf{y'} \left[\mathbf{W(W'W)^{-}W'} - \frac{1}n \mathbf{J}\right] \mathbf{y}
+$$
+
+```{r}
+# Tratamento
+
+AG <- W %*% ginv(t(W) %*% W) %*% t(W) - (1/n) * Jnxn
+
+SQTrat <- t(y) %*% AG %*% y
+SQTrat
+
+gl_trat <- sum(diag(AG %*% ginv(AG)))
+gl_trat
+
+QMTrat <- SQTrat / gl_trat
+QMTrat
+```
+
+```{r}
+# F e p-valor
+
+Fcalc <- QMTrat / QMRes
+Fcalc
+
+Ftab <- qf(0.95, gl_trat, gl_res)
+Ftab
+
+p_valor <- 1 - pf(Fcalc, gl_trat, gl_res)
+p_valor
+```
+
+A seguir, o quadro da ANOVA traz os resultados obtidos.
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "FV" = c("Tratamentos", "Resíduo", "Total"),
+  "gl" = c(gl_trat, gl_res, gl_total),
+  "SQ" = c(SQTrat, SQRes, SQTotal) |> round(4),
+  "QM" = c(QMTrat, QMRes, NA) |> round(4),
+  "Fcal" = c(Fcalc, NA, NA) |> round(4),
+  "Ftab" = c(Ftab, NA, NA) |> round(4),
+  "p.valor" = c(p_valor, NA, NA) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "ANOVA fatorial desbalanceada - modelo de médias: H0: ",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "Ftab", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que o $F_{cal} > F_{tab}$, considerando $F_{(0,05;9;17)}$, rejeita-se a hipótese nula de igualdade de médias, ou seja, pelo menos duas médias diferem entre si.
+
+Com isso, precisamos analisar o efeito de interação entre os tratamentos.
+
+### SAS
+
+```{r}
+#| eval: false
+
+AT = I(n)-(1/n)*J(n,n,1);
+SQTotal = t(Y)*AT*y;
+gl_total = n-1;
+
+ARes = I(n)- W*inv(t(W)*W)*t(W);
+SQRes = t(y)*ARes*y;
+gl_res = round(trace(ARes*ginv(ARes)));
+QMRes = SQRes/gl_Res;
+
+ATrat = W*inv(t(W)*W)*t(W) - (1/n)*J(n,n,1);
+SQTrat = t(y)*ATrat*y;
+gl_trat = round(trace(ATrat*ginv(ATrat)));
+QMTrat = SQTrat/gl_trat;
+F_trat = QMTrat/QMRes;
+p_trat = 1-cdf('F',F_trat,gl_trat,gl_res);
+
+print 'ANOVA - modelo de médias',,
+'Tratamentos ' gl_trat SQTrat[format=12.4] QMTrat[format=12.4] F_trat[format=12.4] p_trat[format=12.4],,
+'Resíduo     ' gl_res SQRes[format=12.4] QMRes[format=12.4],,
+'Total       ' gl_total SQTotal[format=12.4];
+```
+:::
+
+##### Efeito de interação
+
+Para avaliar se há **interação** entre os fatores, realizaremos outra ANOVA, avaliando os **efeitos principais** de ambos os fatores (vide @sec-fatorial-th).
+
+$$
+\begin{align}
+H_0 &: \text{Não há efeito da interação entre os fatores A e B} \\
+H_1 &: \text{Há efeito da interação entre os fatores A e B}
+\end{align}
+$$
+
+Para isso, utilizaremos a **hipótese linear geral**. A soma de quadrados obtida a partir desta abordagem é dada por:
+
+$$
+SQ_{Hip} = (\boldsymbol{C\hat{\beta}})' \left[\mathbf{C(X'X)^-C'}\right]^{-1} (\boldsymbol{C\hat{\beta}})
+$$
+
+::: panel-tabset
+### R
+
+A matriz de coeficientes $\mathbf{C}$ do fator Sexo (`CS`), do fator Girassol (`CG`) e da interação entre os fatores (`CSxG`) são dadas a seguir:
+
+```{r}
+CS <- matrix(c(1,  1,  1,  1,  1, -1, -1, -1, -1, -1), ncol = 10, byrow = TRUE)
+CS
+
+CG <- matrix(c(
+  -2, -1,  0,  1,  2, -2, -1,  0,  1,  2,
+   2, -1, -2, -1,  2,  2, -1, -2, -1,  2,
+  -1,  2,  0, -2,  1, -1,  2,  0, -2,  1,
+   1, -4,  6, -4,  1,  1, -4,  6, -4,  1
+), ncol = 10, byrow = TRUE
+)
+CG
+
+CSxG <- rbind(
+  sweep(CS, 2, CG[1,], `*`),
+  sweep(CS, 2, CG[2,], `*`),
+  sweep(CS, 2, CG[3,], `*`),
+  sweep(CS, 2, CG[4,], `*`)
+)
+CSxG
+```
+
+A matriz `CSxG` é construída a partir da mutiplicação, elemento a elemento, da matriz `CS` com a primeira, segunda, terceira e quarta linhas da matriz `CG`. Para isso, utilizamos a função `sweep()` para realizar esta operação e, posteriormente, com a `rbind()`, juntamos os resultados por linha.
+
+```{r}
+# Fator Sexo
+SQSexo <- t(CS %*% Mi) %*% solve(CS %*% ginv(t(W) %*% W) %*% t(CS)) %*% (CS %*% Mi)
+SQSexo
+
+gl_sexo <- nrow(CS)
+gl_sexo
+
+QMSexo <- SQSexo / gl_sexo
+QMSexo
+
+F_sexo <- QMSexo / QMRes
+F_sexo
+
+p_sexo <- 1 - pf(F_sexo, gl_sexo, gl_res)
+p_sexo
+```
+
+```{r}
+# Fator Girassol
+SQGirassol <- t(CG %*% Mi) %*% solve(CG %*% ginv(t(W) %*% W) %*% t(CG)) %*% (CG %*% Mi)
+SQGirassol
+
+gl_girassol <- nrow(CG)
+gl_girassol
+
+QMGirassol <- SQGirassol / gl_girassol
+QMGirassol
+
+F_girassol <- QMGirassol / QMRes
+F_girassol
+
+p_girassol <- 1 - pf(F_girassol, gl_girassol, gl_res)
+p_girassol
+```
+
+```{r}
+# Interação Sexo x Girassol
+SQSxG <- t(CSxG %*% Mi) %*% solve(CSxG %*% ginv(t(W) %*% W) %*% t(CSxG)) %*% (CSxG %*% Mi)
+SQSxG
+
+gl_SxG <- nrow(CSxG)
+gl_SxG
+
+QMSxG <- SQSxG / gl_SxG
+QMSxG
+
+F_SxG <- QMSxG / QMRes
+F_SxG
+
+p_SxG <- 1 - pf(F_SxG, gl_SxG, gl_res)
+p_SxG
+```
+
+No caso fatorial desbalanceado, a soma das somas de quadrados não será igual a soma de quadrados dos tratamentos, pois não utilizamos contrastes ortogonais ponderados.
+
+```{r}
+SSQ <- SQSexo + SQGirassol + SQSxG
+SSQ
+
+SQTrat
+```
+
+O quadro de ANOVA resume os resultados obtidos.
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "FV" = c("Sexo (A)", "Girassol (B)", "Interação (AxB)", "Resíduo", "Total"),
+  "gl" = c(gl_sexo, gl_girassol, gl_SxG, gl_res, gl_total),
+  "SQ" = c(SQSexo, SQGirassol, SQSxG, SQRes, SQTotal) |> round(3),
+  "QM" = c(QMSexo, QMGirassol, QMSxG, QMRes, NA) |> round(3),
+  "Fcal" = c(F_sexo, F_girassol, F_SxG, NA, NA) |> round(3),
+  "p.valor" = c(p_sexo, p_girassol, p_SxG, NA, NA) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "ANOVA: Fatorial Sexo x Girassol (caso desbalanceado) - Interação e efeitos principais",
+    col.names = c("FV", "gl", "SQ", "QM", "Fcal", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Dado que o p-valor da **interação** é menor que p-valor = 0,05, **rejeita-se** $H_0: \text{Não há efeito da interação entre os fatores A e B}$, ou seja, **há efeito de interação** entre os fatores Sexo e Girassol (há dependência).
+
+Visto que há interação entre os fatores, precisamos avaliar os **efeitos simples** dos tratamentos.
+
+### SAS
+
+```{r}
+#| eval: false
+
+CS = { 1  1  1  1  1 -1 -1 -1 -1 -1};
+*CG = {-4  1  1  1  1 -4  1  1  1  1,
+       0 -3  1  1  1  0 -3  1  1  1,
+       0  0 -2  1  1  0  0 -2  1  1,
+       0  0  0 -1  1  0  0  0 -1  1}; 
+
+CG = {-2 -1  0  1  2 -2 -1  0  1  2,
+       2 -1 -2 -1  2  2 -1 -2 -1  2,
+	  -1  2  0 -2  1 -1  2  0 -2  1,
+	   1 -4  6 -4  1  1 -4  6 -4  1};
+CSxG = CS#CG[1,]//CS#CG[2,]//CS#CG[3,]//CS#CG[4,];
+print CS,, CG,, CSxG;
+
+SQSexo = t(CS*Mi)*inv(CS*inv(t(W)*W)*t(CS))*(CS*Mi);
+gl_Sexo = nrow(CS);
+QMSexo = SQSexo/gl_Sexo;
+F_sexo =QMSexo/QMRes;
+p_sexo = 1-cdf('F',F_sexo,gl_sexo,gl_res);
+
+SQGirassol = t(CG*Mi)*inv(CG*inv(t(W)*W)*t(CG))*(CG*Mi);
+gl_Girassol = nrow(CG);
+QMGirassol = SQGirassol/gl_Girassol;
+F_Girassol = QMGirassol/QMRes;
+p_girassol = 1-cdf('F',F_Girassol,gl_Girassol,gl_res);
+
+SQSxG = t(CSxG*Mi)*inv(CSxG*inv(t(W)*W)*t(CSxG))*(CSxG*Mi);
+gl_SxG = nrow(CSxG);
+QMSxG = SQSxG/gl_SxG;
+F_SxG = QMSxG/QMRes;
+p_SxG = 1-cdf('F',F_SxG,gl_SxG,gl_res);
+
+SQTrats = SQSexo + SQGirassol + SQSxG;
+
+print 'ANOVA - FATORIAL SEXO x GIRASSOL',,
+'Sexo            ' gl_sexo SQSexo[format=12.4] QMSexo[format=12.4] F_sexo[format=12.4] p_sexo[format=12.4],,
+'Girassol      ' gl_girassol SQGirassol[format=12.4] QMGirassol[format=12.4] F_Girassol[format=12.4] p_Girassol[format=12.4],,
+'Interação SxG   ' gl_SxG SQSxG[format=12.4] QMSxG[format=12.4] F_SxG[format=12.4] p_SxG[format=12.4],,
+'Resíduo         ' gl_res SQRes[format=12.4] QMRes[format=12.4],,
+'Total           ' gl_total SQTotal[format=12.4],,;
+
+print 'SQTrats = SQS + SQG + SQSxG = ' SQTrats[format=12.4] SQTrat[format=12.4];
+
+```
+:::
+
+##### Efeitos Simples
+
+Dado que há interação entre os fatores, devemos avaliar os **efeitos simples** de cada fator, ou seja, avaliar o efeito do fator A (Sexo) dentro de cada nível do fator B (Girassol) e/ou o efeito do fator B (Girassol) dentro de cada nível do fator A (Sexo).
+
+Para isso, utilizaremos **contrastes ortogonais** não ponderados.
+
+###### Sexo dentro de Girassol
+
+Primeiramente, compararemos as médias dos dois sexos dentro de cada nível do fator Girassol.
+
+$$
+H_0: \mu_{1j} = \mu_{2j}, \quad \text{para } j = 1,2,3,4,5
+$$
+
+::: panel-tabset
+### R
+
+```{r}
+a1 <- matrix(c(1, 0, 0, 0, 0, -1,  0,  0,  0,  0), ncol = 1)
+a2 <- matrix(c(0, 1, 0, 0, 0,  0, -1,  0,  0,  0), ncol = 1)
+a3 <- matrix(c(0, 0, 1, 0, 0,  0,  0, -1,  0,  0), ncol = 1)
+a4 <- matrix(c(0, 0, 0, 1, 0,  0,  0,  0, -1,  0), ncol = 1)
+a5 <- matrix(c(0, 0, 0, 0, 1,  0,  0,  0,  0, -1), ncol = 1)
+```
+
+A soma de quadrados dos contrastes é calculada da seguinte forma:
+
+$$
+SQ_c = (\boldsymbol{\lambda' \mu})' \left[\boldsymbol{\lambda'} (\mathbf{W'W})^{-1} \boldsymbol{\lambda}\right]^{-1} (\boldsymbol{\lambda' \mu})
+$$
+
+Cada contraste tem um graus de liberdade.
+
+```{r}
+SQa1 <- t(t(a1) %*% Mi) %*% solve(t(a1) %*% solve(t(W) %*% W) %*% a1) %*% (t(a1) %*% Mi)
+SQa1
+
+SQa2 <- t(t(a2) %*% Mi) %*% solve(t(a2) %*% solve(t(W) %*% W) %*% a2) %*% (t(a2) %*% Mi)
+SQa2
+
+SQa3 <- t(t(a3) %*% Mi) %*% solve(t(a3) %*% solve(t(W) %*% W) %*% a3) %*% (t(a3) %*% Mi)
+SQa3
+
+SQa4 <- t(t(a4) %*% Mi) %*% solve(t(a4) %*% solve(t(W) %*% W) %*% a4) %*% (t(a4) %*% Mi)
+SQa4
+
+SQa5 <- t(t(a5) %*% Mi) %*% solve(t(a5) %*% solve(t(W) %*% W) %*% a5) %*% (t(a5) %*% Mi)
+SQa5
+
+gl_a <- 1
+```
+
+A estatística F e o p-valor de cada contraste é dado por:
+
+```{r}
+Fcalc1 <- SQa1 / QMRes
+p_valor1 <- 1 - pf(Fcalc1, 1, gl_res)
+p_valor1
+
+Fcalc2 <- SQa2 / QMRes
+p_valor2 <- 1 - pf(Fcalc2, 1, gl_res)
+p_valor2
+
+Fcalc3 <- SQa3 / QMRes
+p_valor3 <- 1 - pf(Fcalc3, 1, gl_res)
+p_valor3
+
+Fcalc4 <- SQa4 / QMRes
+p_valor4 <- 1 - pf(Fcalc4, 1, gl_res)
+p_valor4
+
+Fcalc5 <- SQa5 / QMRes
+p_valor5 <- 1 - pf(Fcalc5, 1, gl_res)
+p_valor5
+```
+
+O quadro de ANOVA resume os resultados obtidos.
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "Hipóteses" = c("Girassol = 0: M = F", "Girassol = 25: M = F", "Girassol = 50: M = F", "Girassol = 75: M = F", "Girassol = 100: M = F"),
+  "gl" = c(gl_a),
+  "SQ" = c(SQa1, SQa2, SQa3, SQa4, SQa5) |> round(3),
+  "Fcal" = c(Fcalc1, Fcalc2, Fcalc3, Fcalc4, Fcalc5) |> round(3),
+  "p.valor" = c(p_valor1, p_valor2, p_valor3, p_valor4, p_valor5) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "ANOVA: Fatorial Sexo x Girassol (caso desbalanceado) - Sexo dentro de Girassol",
+    col.names = c("Hipóteses", "gl", "SQ", "Fcal", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Apenas para Girassol = 0% $H_0: \mu_{1j} = \mu_{2j}$ não foi rejeitada. No demais níveis (25%, 50%, 75% e 100%), rejeita-se a hipótese nula, ou seja, há diferença entre o ganho de peso entre machos e fêmeas.
+
+Para verificar a diferença do percentual de farelo de girassol entre os sexo, devemos analisar as médias dos efeitos simples.
+
+```{r}
+#| echo: false
+
+data.frame(
+  Girassol = rep(c(0,25,50,75,100),2),
+  Sexo = c(rep("F", 5), rep("M", 5)),
+  medias = round(Mi, 2)
+) |> 
+  tidyr::pivot_wider(names_from = Girassol, values_from = medias) |> 
+  kableExtra::kbl(align = "c") |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+Uma vez que para girassol = 0% não houve significância, as médias entre os sexos não diferem, estatisticamente. Para os níveis 25%, 50%, 75% e 100%, o ganho médio de peso dos machos foi superior ao das fêmeas, mas com 100% de Girassol, as fêmeas tiveram maior ganho médio de peso.
+
+```{r}
+#| echo: false
+
+data.frame(
+  Sexo = c("F", "M"),
+  "0"  = c("81.53 a", "85.00 a"),
+  "25" = c("71.83 b", "95.43 a"),	
+  "50" = c("66.25 b", "98.75 a"),	
+  "75" = c("71.60 b", "93.17 a"),	
+  "100" = c("91.4 a", "80.5 b")
+) |> 
+  kableExtra::kbl(align = "c", col.names = c("Sexo","0","25","50","75","100")) |> 
+  kableExtra::kable_styling(position = "center")
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+a1 = {1 0 0 0 0 -1  0  0  0  0};
+a2 = {0 1 0 0 0  0 -1  0  0  0};
+a3 = {0 0 1 0 0  0  0 -1  0  0};
+a4 = {0 0 0 1 0  0  0  0 -1  0};
+a5 = {0 0 0 0 1  0  0  0  0 -1};
+SQa1 = t(a1*Mi)*inv(a1*inv(t(W)*W)*t(a1))*(a1*Mi);
+SQa2 = t(a2*Mi)*inv(a2*inv(t(W)*W)*t(a2))*(a2*Mi);
+SQa3 = t(a3*Mi)*inv(a3*inv(t(W)*W)*t(a3))*(a3*Mi);
+SQa4 = t(a4*Mi)*inv(a4*inv(t(W)*W)*t(a4))*(a4*Mi);
+SQa5 = t(a5*Mi)*inv(a5*inv(t(W)*W)*t(a5))*(a5*Mi);
+gl_a = 1;
+Fa1 = SQa1/QMRes; Fa2 = SQa2/QMRes; Fa3 = SQa3/QMRes; Fa4 = SQa4/QMRes; Fa5 = SQa5/QMRes;
+p_a1 = 1-cdf('F',Fa1,1,gl_res); p_a2 = 1-cdf('F',Fa2,1,gl_res);
+p_a3 = 1-cdf('F',Fa3,1,gl_res); p_a4 = 1-cdf('F',Fa4,1,gl_res);
+p_a5 = 1-cdf('F',Fa5,1,gl_res);
+
+print '------------------------------------------------------------------------',
+      ' Desdobramento (1): Compara as médias de Sexo em cada nível de Girassol ',
+      '------------------------------------------------------------------------',,
+'Girassol=  0: M=F' gl_a SQa1[format=12.4] Fa1[format=12.4] p_a1[format=12.4],,
+'Girassol= 25: M=F' gl_a SQa2[format=12.4] Fa2[format=12.4] p_a2[format=12.4],,
+'Girassol= 50: M=F' gl_a SQa3[format=12.4] Fa3[format=12.4] p_a3[format=12.4],,
+'Girassol= 75: M=F' gl_a SQa4[format=12.4] Fa4[format=12.4] p_a4[format=12.4],,
+'Girassol=100: M=F' gl_a SQa5[format=12.4] Fa5[format=12.4] p_a5[format=12.4];
+
+quit;
+```
+:::
+
+###### Girassol dentro de Sexo
+
+Agora, compararemos as médias do fator Girassol dentro de cada nível de sexo. Como Girassol é um fator **quantitativo** e seus níveis são igualmente espaçados, vamos usar coeficientes de polinômios ortogonais para realizar os testes de tendência, separadamente, para cada Sexo.
+
+$$
+H_0: \mu_{i1} = \mu_{i2} = \mu_{i3} = \mu_{i4} = \mu_{i5}, \quad \text{para } i = 1,2
+$$
+
+::: panel-tabset
+### R
+
+Como são 5 níveis, utilizaremos os coeficientes até o 4º grau.
+
+Para as fêmeas vamos usar:
+
+```{r}
+F1 <- c(-2, -1,  0,  1, 2, 0, 0, 0, 0, 0)  # Grau 1
+F2 <- c( 2, -1, -2, -1, 2, 0, 0, 0, 0, 0)  # Grau 2
+F3 <- c(-1,  2,  0, -2, 1, 0, 0, 0, 0, 0)  # Grau 3
+F4 <- c( 1, -4,  6, -4, 1, 0, 0, 0, 0, 0)  # Grau 4
+```
+
+e para os machos:
+
+```{r}
+M1 <- c(0, 0, 0, 0, 0, -2, -1,  0,  1, 2)  # Grau 1
+M2 <- c(0, 0, 0, 0, 0,  2, -1, -2, -1, 2)  # Grau 2
+M3 <- c(0, 0, 0, 0, 0, -1,  2,  0, -2, 1)  # Grau 3
+M4 <- c(0, 0, 0, 0, 0,  1, -4,  6, -4, 1)  # Grau 4
+```
+
+Com os contrastes ortogonais para cada sexo, realizaremos a ANOVA para cada um deles, a fim de verificar qual o grau de polinômio que melhor explica o ganho de peso de cada um dos sexos.
+
+-   **Fêmeas**:
+
+```{r}
+SQf1 <- t(t(F1) %*% Mi) %*% solve(t(F1) %*% solve(t(W) %*% W) %*% F1) %*% (t(F1) %*% Mi)
+
+SQf2 <- t(t(F2) %*% Mi) %*% solve(t(F2) %*% solve(t(W) %*% W) %*% F2) %*% (t(F2) %*% Mi)
+
+SQf3 <- t(t(F3) %*% Mi) %*% solve(t(F3) %*% solve(t(W) %*% W) %*% F3) %*% (t(F3) %*% Mi)
+
+SQf4 <- t(t(F4) %*% Mi) %*% solve(t(F4) %*% solve(t(W) %*% W) %*% F4) %*% (t(F4) %*% Mi)
+
+
+gl_f <- 1
+
+
+Fcalc1 <- SQf1 / QMRes
+p_valor1 <- 1 - pf(Fcalc1, 1, gl_res)
+
+Fcalc2 <- SQf2 / QMRes
+p_valor2 <- 1 - pf(Fcalc2, 1, gl_res)
+
+Fcalc3 <- SQf3 / QMRes
+p_valor3 <- 1 - pf(Fcalc3, 1, gl_res)
+
+Fcalc4 <- SQf4 / QMRes
+p_valor4 <- 1 - pf(Fcalc4, 1, gl_res)
+```
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "Grau" = c("1º", "2º", "3º", "4º"),
+  "gl" = c(gl_f),
+  "SQ" = c(SQf1, SQf2, SQf3, SQf4) |> round(3),
+  "Fcal" = c(Fcalc1, Fcalc2, Fcalc3, Fcalc4) |> round(3),
+  "p.valor" = c(p_valor1, p_valor2, p_valor3, p_valor4) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "ANOVA: Fatorial Sexo x Girassol (caso desbalanceado) - Girassol dentro de Sexo F",
+    col.names = c("Grau", "gl", "SQ", "Fcal", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center") |> 
+  kableExtra::row_spec(3, bold = TRUE, background = "#B9C6EB")
+```
+
+Analisando, decrescentemente, a ordem dos graus, o 3º grau é o primeiro a apresentar significância estatística, considerando p-valor = 5%. Assim, o comportamento do ganho de peso em função do aumento da porcentagem de substituição do farelo de soja por farelo de girassol pode ser bem explicado por um polinômio de 3º grau para as fêmeas.
+
+-   **Machos:**
+
+```{r}
+SQm1 <- t(t(M1) %*% Mi) %*% solve(t(M1) %*% solve(t(W) %*% W) %*% M1) %*% (t(M1) %*% Mi)
+
+SQm2 <- t(t(M2) %*% Mi) %*% solve(t(M2) %*% solve(t(W) %*% W) %*% M2) %*% (t(M2) %*% Mi)
+
+SQm3 <- t(t(M3) %*% Mi) %*% solve(t(M3) %*% solve(t(W) %*% W) %*% M3) %*% (t(M3) %*% Mi)
+
+SQm4 <- t(t(M4) %*% Mi) %*% solve(t(M4) %*% solve(t(W) %*% W) %*% M4) %*% (t(M4) %*% Mi)
+
+
+gl_m <- 1
+
+
+Fcalc1 <- SQm1 / QMRes
+p_valor1 <- 1 - pf(Fcalc1, 1, gl_res)
+
+Fcalc2 <- SQm2 / QMRes
+p_valor2 <- 1 - pf(Fcalc2, 1, gl_res)
+
+Fcalc3 <- SQm3 / QMRes
+p_valor3 <- 1 - pf(Fcalc3, 1, gl_res)
+
+Fcalc4 <- SQm4 / QMRes
+p_valor4 <- 1 - pf(Fcalc4, 1, gl_res)
+```
+
+```{r}
+#| echo: false
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  "Grau" = c("1º", "2º", "3º", "4º"),
+  "gl" = c(gl_m),
+  "SQ" = c(SQm1, SQm2, SQm3, SQm4) |> round(3),
+  "Fcal" = c(Fcalc1, Fcalc2, Fcalc3, Fcalc4) |> round(3),
+  "p.valor" = c(p_valor1, p_valor2, p_valor3, p_valor4) |> round(4)
+) |> 
+  kableExtra::kbl(
+    align = "c",
+    caption = "ANOVA: Fatorial Sexo x Girassol (caso desbalanceado) - Girassol dentro de Sexo M",
+    col.names = c("Grau", "gl", "SQ", "Fcal", "p-valor (5%)")
+  ) |> 
+  kableExtra::kable_styling(position = "center") |> 
+  kableExtra::row_spec(2, bold = TRUE, background = "#B9C6EB")
+```
+
+Enquanto isso, para os machos, o comportamento do ganho de peso em função do aumento da porcentagem de substituição do farelo de soja por farelo de girassol pode ser bem explicado por um polinômio de 2º grau.
+
+A seguir, ajustaremos as curvas de regressão de ambos os modelos. Para isso, utilizaremos a função `fat2.dic()` do pacote `ExpDes.pt`, a fim de obter os coeficientes de regressão estimados.
+
+```{r}
+#| eval: false
+
+install.packages("ExpDes.pt")
+library(ExpDes.pt)
+```
+
+```{r}
+#| message: false
+
+dados <- data.frame(
+  Sexo = c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2),
+  Girassol = c(0, 0, 0, 25, 25, 25, 50, 50, 75, 75, 75, 100, 100, 100, 0, 0, 25, 25, 25, 50, 50, 75, 75, 75, 100, 100, 100),
+  Trat = c(1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 7, 7, 7, 8, 8, 9, 9, 9, 10, 10, 10),
+  Rep = c(1, 2, 3, 1, 2, 3, 1, 3, 1, 2, 3, 1, 2, 3, 2, 3, 1, 2, 3, 1, 2, 1, 2, 3, 1, 2, 3),
+  GP = c(77.9, 83.2, 83.5, 71.5, 73.5, 70.5, 67.5, 65.0, 71.5, 70.8, 72.5, 89.5, 91.8, 92.9, 86.0, 84.0, 94.5, 96.0, 95.8, 99.5, 98.0, 93.0, 96.0, 90.5, 83.0, 80.0, 78.5)
+)
+
+with(
+  dados,
+  fat2.dic(Sexo, Girassol, resp = GP, quali = c(TRUE, FALSE))
+  )
+```
+
+A seguir, contruiremos os gráficos dos modelos ajustados.
+
+```{r}
+dados <- dados |> dplyr::mutate(Sexo = as.factor(Sexo))
+
+## Fêmeas
+dados_f <- dados |> dplyr::filter(Sexo == 1)
+
+## Machos
+dados_m <- dados |> dplyr::filter(Sexo == 2)
+
+## Gráfico
+library(ggplot2)
+
+dados |> 
+  ggplot() + 
+  geom_point(aes(x = Girassol, y = GP, color = Sexo)) +
+  stat_function(
+    data = dados_f, 
+    fun = function(Girassol) {81.577 - 0.425*Girassol - 0.0003*Girassol^2 + 0.00006 * Girassol^3},
+    color = "#F77D7D", linewidth = 1, linetype = 2
+  ) +
+  stat_function(
+    data = dados_m,
+    fun = function(Girassol) {84.951 + 0.5847*Girassol - 0.0063*Girassol^2},
+    color = "#52A7E8", linewidth = 1, linetype = 2
+  ) +
+  theme_minimal() +
+  labs(x = NULL, y = "Ganho de peso", color = NULL) +
+  scale_color_discrete(labels = c("Fêmea", "Macho")) +
+  theme(legend.position = "bottom")
+```
+
+### SAS
+
+```{r}
+#| eval: false
+
+proc glm;
+class trat;
+model GP = trat / ss3;
+
+contrast 'Sexo' trat 1  1  1  1  1 -1 -1 -1 -1 -1;
+contrast 'Girassol'  trat -2 -1  0  1  2 -2 -1  0  1  2,
+      				 trat  2 -1 -2 -1  2  2 -1 -2 -1  2,
+	  				 trat -1  2  0 -2  1 -1  2  0 -2  1,
+	  				 trat  1 -4  6 -4  1  1 -4  6 -4  1;
+contrast 'Interação' trat -4  1  1  1  1  4 -1 -1 -1 -1,
+      				 trat  0 -3  1  1  1  0  3 -1 -1 -1,
+ 	  				 trat  0  0 -2  1  1  0  0  2 -1 -1,
+ 	  				 trat  0  0  0 -1  1  0  0  0  1 -1;
+
+contrast 'Girassol=  0: F = M' trat 1 0 0 0 0 -1  0  0  0  0;
+contrast 'Girassol= 25: F = M' trat 0 1 0 0 0  0 -1  0  0  0;
+contrast 'Girassol= 50: F = M' trat 0 0 1 0 0  0  0 -1  0  0;
+contrast 'Girassol= 75: F = M' trat 0 0 0 1 0  0  0  0 -1  0;
+contrast 'Girassol=100: F = M' trat 0 0 0 0 1  0  0  0  0 -1;
+contrast 'Machos: Girassol grau 1' trat -2 -1  0  1  2  0  0  0  0  0;
+contrast 'Machos: Girassol grau 2' trat  2 -1 -2 -1  2  0  0  0  0  0;
+contrast 'Machos: Girassol grau 3' trat -1  2  0 -2  1  0  0  0  0  0;
+contrast 'Machos: Girassol grau 4' trat  1 -4  6 -4  1  0  0  0  0  0;
+contrast 'Fêmeas: Girassol grau 1' trat  0  0  0  0  0 -2 -1  0  1  2;
+contrast 'Fêmeas: Girassol grau 2' trat  0  0  0  0  0  2 -1 -2 -1  2;
+contrast 'Fêmeas: Girassol grau 3' trat  0  0  0  0  0 -1  2  0 -2  1;
+contrast 'Fêmeas: Girassol grau 4' trat  0  0  0  0  0  1 -4  6 -4  1;
+run;
+
+proc glm;
+class Sexo Girassol;
+model GP = Sexo Girassol  / ss1 ss2 ss3;
+run;
 ```
 :::
