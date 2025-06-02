@@ -10,11 +10,11 @@ Este material foi desenvolvido com Quarto e publicado como uma página HTML via 
 ## Conteúdo 
 O material abrange desde conceitos básicos de álgebra matricial aplicada à estatística multivariada, até modelos de regressão simples e múltipla, culminando com modelos de análise de variância, tanto balanceados quanto desbalanceados. O conteúdo e exercícios de aula abordam os seguintes tópicos:
 
-### 1. Capítulos 1 a 3 - Covariância, Correlação e Distância de Mahalanobis
-### 2. Capítulo 4 e 5 - Distribuição Normal Multivariada e Distribuição de formas quadráticas
-### 3. Capítulo 6 - Regressão Linear Simples
-### 4. Capítulo 7 e 8 - Regressão Linear Múltipla
-### 5. Modelos de Análise de Variância (ANOVA)
+#### 1. Capítulos 1 a 3 - Covariância, Correlação e Distância de Mahalanobis
+#### 2. Capítulo 4 e 5 - Distribuição Normal Multivariada e Distribuição de formas quadráticas
+#### 3. Capítulo 6 - Regressão Linear Simples
+#### 4. Capítulo 7 e 8 - Regressão Linear Múltipla
+#### 5. Modelos de Análise de Variância (ANOVA)
 - Capítulo 13 - ANOVA com um fator: Caso Balanceado
 - Capítulo 14 - ANOVA com dois fatores: Caso Balanceado
 - Capítulo 15 - ANOVA para dados desbalanceados (com um e dois fatores)
